@@ -1,5 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Pencil, Upload, X } from 'lucide-react';
+import { CKEditor } from '@ckeditor/ckeditor5-react';
+import {
+  ClassicEditor,
+  Essentials,
+  Paragraph,
+  Bold,
+  Italic,
+  Underline,
+  Strikethrough,
+  FontFamily,
+  FontSize,
+  FontColor,
+  FontBackgroundColor,
+  Alignment,
+  Heading,
+  Link,
+  List,
+  BlockQuote,
+  Table,
+  TableToolbar,
+  TableProperties,
+  TableCellProperties,
+  Undo
+} from 'ckeditor5';
+import 'ckeditor5/ckeditor5.css';
 import { URLS } from '../../url';
 
 const getToken = () => {
@@ -41,9 +66,59 @@ export const FILE_STATUS_LIST = [
   { code: 'CANC', label: 'Cancelled (CANC)' },
 ];
 
+/* CKEditor 4 Fallback Component (uses window.CKEDITOR from index.html CDN) */
+function CKEditor4Fallback({ value, onChange }) {
+  const textareaId = useRef(`cke4_modal_${Math.random().toString(36).substring(2, 9)}`);
+
+  useEffect(() => {
+    const CKEDITOR = window.CKEDITOR;
+    if (!CKEDITOR) return;
+
+    if (CKEDITOR.instances[textareaId.current]) {
+      CKEDITOR.instances[textareaId.current].destroy(true);
+    }
+
+    const editor = CKEDITOR.replace(textareaId.current, {
+      height: 280,
+      allowedContent: true,
+      toolbar: [
+        { name: 'document', items: ['Source', '-', 'Undo', 'Redo'] },
+        { name: 'styles', items: ['Format', 'Font', 'FontSize'] },
+        { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline', 'Strike'] },
+        { name: 'colors', items: ['TextColor', 'BGColor'] },
+        { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Blockquote', 'JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'] },
+        { name: 'insert', items: ['Table', 'HorizontalRule', 'SpecialChar'] },
+        { name: 'links', items: ['Link', 'Unlink'] },
+        { name: 'tools', items: ['Maximize'] }
+      ]
+    });
+
+    editor.setData(value || '');
+
+    editor.on('change', () => {
+      if (onChange) onChange(editor.getData());
+    });
+
+    return () => {
+      if (CKEDITOR.instances[textareaId.current]) {
+        CKEDITOR.instances[textareaId.current].destroy(true);
+      }
+    };
+  }, []);
+
+  return (
+    <textarea
+      id={textareaId.current}
+      defaultValue={value}
+      style={{ width: '100%', minHeight: '280px', display: 'none' }}
+    />
+  );
+}
+
 export default function DashboardContentModal({ isOpen, onClose, onSave, editData }) {
   const isEdit = !!editData;
   const fileRef = useRef(null);
+  const [useFallback, setUseFallback] = useState(false);
 
   const [fileStatus, setFileStatus] = useState('');
   const [pageTitle, setPageTitle] = useState('');
@@ -150,7 +225,8 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
         </div>
         <form onSubmit={handleSubmit}>
           <div className="dc-modal-body">
-            <div className="dc-form-grid-2">
+            {/* Left Column: File Status and Banner Image */}
+            <div className="dc-form-left">
               <div className="dc-form-group">
                 <label>File Status <span className="dc-required">*</span></label>
                 <select
@@ -163,37 +239,147 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
                   ))}
                 </select>
               </div>
+
               <div className="dc-form-group">
-                <label>Description <span className="dc-required">*</span></label>
-                <textarea
-                  className="dc-input"
-                  placeholder="Enter page title / description..."
-                  value={pageTitle}
-                  onChange={e => setPageTitle(e.target.value)}
-                  rows={3}
-                  required
-                />
+                <label>Banner Image</label>
+                {imagePreview ? (
+                  <div className="dc-image-preview">
+                    <img src={imagePreview} alt="Banner Preview" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    <button type="button" className="dc-preview-remove" onClick={removeImage}>
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="dc-upload-zone">
+                    <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} />
+                    <div className="dc-upload-icon"><Upload size={24} /></div>
+                    <p className="dc-upload-hint">
+                      <span>Click to upload</span> or drag & drop<br />
+                      PNG, JPG, WEBP (max 5 MB)
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="dc-form-group">
-              <label>Banner Image</label>
-              {imagePreview ? (
-                <div className="dc-image-preview">
-                  <img src={imagePreview} alt="Banner Preview" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  <button type="button" className="dc-preview-remove" onClick={removeImage}>
-                    <X size={12} />
-                  </button>
+
+            {/* Right Column: Full CKEditor */}
+            <div className="dc-form-right">
+              <div className="dc-form-group" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <label>Description <span className="dc-required">*</span></label>
+                <div className="dc-editor-container" style={{ flex: 1 }}>
+                  {!useFallback ? (
+                    <CKEditor
+                      editor={ClassicEditor}
+                      data={pageTitle}
+                      onChange={(event, editor) => {
+                        const data = editor.getData();
+                        setPageTitle(data);
+                      }}
+                      onError={(error) => {
+                        console.warn('⚠️ Modal CKEditor 5 error, falling back to CKEditor 4:', error);
+                        setUseFallback(true);
+                      }}
+                      config={{
+                        licenseKey: 'GPL',
+                        plugins: [
+                          Essentials,
+                          Paragraph,
+                          Heading,
+                          Bold,
+                          Italic,
+                          Underline,
+                          Strikethrough,
+                          FontFamily,
+                          FontSize,
+                          FontColor,
+                          FontBackgroundColor,
+                          Alignment,
+                          Link,
+                          List,
+                          BlockQuote,
+                          Table,
+                          TableToolbar,
+                          TableProperties,
+                          TableCellProperties,
+                          Undo
+                        ],
+                        toolbar: {
+                          items: [
+                            'heading', '|',
+                            'fontFamily', 'fontSize', '|',
+                            'bold', 'italic', 'underline', 'strikethrough', '|',
+                            'fontColor', 'fontBackgroundColor', '|',
+                            'alignment', '|',
+                            'numberedList', 'bulletedList', '|',
+                            'link', 'blockQuote', 'insertTable', '|',
+                            'undo', 'redo'
+                          ],
+                          shouldNotGroupWhenFull: true
+                        },
+                        fontFamily: {
+                          options: [
+                            'default',
+                            'Arial, Helvetica, sans-serif',
+                            'Courier New, Courier, monospace',
+                            'Georgia, serif',
+                            'Lucida Sans Unicode, Lucida Grande, sans-serif',
+                            'Tahoma, Geneva, sans-serif',
+                            'Times New Roman, Times, serif',
+                            'Trebuchet MS, Helvetica, sans-serif',
+                            'Verdana, Geneva, sans-serif'
+                          ],
+                          supportAllValues: true
+                        },
+                        fontSize: {
+                          options: [
+                            'tiny',
+                            'small',
+                            'default',
+                            'big',
+                            'huge'
+                          ],
+                          supportAllValues: true
+                        },
+                        fontColor: {
+                          columns: 5,
+                          documentColors: 10
+                        },
+                        fontBackgroundColor: {
+                          columns: 5,
+                          documentColors: 10
+                        },
+                        heading: {
+                          options: [
+                            { model: 'paragraph', title: 'Paragraph', class: 'ck-heading_paragraph' },
+                            { model: 'heading1', view: 'h1', title: 'Heading 1', class: 'ck-heading_heading1' },
+                            { model: 'heading2', view: 'h2', title: 'Heading 2', class: 'ck-heading_heading2' },
+                            { model: 'heading3', view: 'h3', title: 'Heading 3', class: 'ck-heading_heading3' },
+                            { model: 'heading4', view: 'h4', title: 'Heading 4', class: 'ck-heading_heading4' }
+                          ]
+                        },
+                        alignment: {
+                          options: ['left', 'center', 'right', 'justify']
+                        },
+                        table: {
+                          contentToolbar: [
+                            'tableColumn',
+                            'tableRow',
+                            'mergeTableCells',
+                            'tableProperties',
+                            'tableCellProperties'
+                          ]
+                        },
+                        placeholder: 'Enter page title / description...',
+                      }}
+                    />
+                  ) : (
+                    <CKEditor4Fallback
+                      value={pageTitle}
+                      onChange={(data) => setPageTitle(data)}
+                    />
+                  )}
                 </div>
-              ) : (
-                <div className="dc-upload-zone">
-                  <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} />
-                  <div className="dc-upload-icon"><Upload size={24} /></div>
-                  <p className="dc-upload-hint">
-                    <span>Click to upload image</span> or drag & drop<br />
-                    PNG, JPG, WEBP (max 5 MB)
-                  </p>
-                </div>
-              )}
+              </div>
             </div>
           </div>
           <div className="dc-modal-footer">

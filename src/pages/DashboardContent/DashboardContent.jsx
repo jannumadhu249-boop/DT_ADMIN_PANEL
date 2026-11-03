@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Pencil, Trash2, ImageOff, X, AlertTriangle, CheckCircle2, FileText, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, ImageOff, X, AlertTriangle, CheckCircle2, FileText, Search, ArrowLeft } from 'lucide-react';
 import { URLS } from '../../url';
-import DashboardContentModal, { FILE_STATUS_LIST } from './DashboardContentModal';
+import DashboardContentForm from './DashboardContentForm';
 import './DashboardContent.css';
 
 const getToken = () => {
@@ -12,6 +12,36 @@ const getToken = () => {
   }
   return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbl9pZCI6IjZhNThiZDFjNzE1ZjE4ZTYxZDQxY2Y5MiIsImVtYWlsIjoiZGl2eWFwZW5keWFsYTA3MTdAZ21haWwuY29tIiwiYWRtaW5fc3RhZ2UiOiJzdXBlciIsImlhdCI6MTc4NDIwNDE1OCwiZXhwIjoxODE1NzQwMTU4fQ.1pjPlGU41H1G5ei3AfTEcaWk9O1eyRTG769xnpj5xts';
 };
+
+export const FILE_STATUS_LIST = [
+  { code: 'RGO', label: 'Registered Users (RGO)' },
+  { code: 'SP', label: 'Scheduling Pending (SP)' },
+  { code: 'BIP', label: 'Information Pending (BIP)' },
+  { code: 'IP', label: 'Interview Pending (IP)' },
+  { code: 'DP', label: 'Documents Pending (DP)' },
+  { code: 'PP_I', label: 'Preparation Pending - I (PP_I)' },
+  { code: 'PP_II', label: 'Preparation Pending - II (PP_II)' },
+  { code: 'TR_S_I', label: 'Review & Summary I (TR_S_I)' },
+  { code: 'TR_S_II', label: 'Review & Summary II (TR_S_II)' },
+  { code: 'ITIN', label: 'ITIN Files (ITIN)' },
+  { code: 'RE_ES', label: 'Revised Estimate (RE_ES)' },
+  { code: 'PP_EF', label: 'Payment Pending - Efiling (PP_EF)' },
+  { code: 'PP_PF', label: 'Payment Pending - Paper filing (PP_PF)' },
+  { code: 'FPR', label: 'Fee Payment Received - I (FPR)' },
+  { code: 'FPR_II', label: 'Fee Payment Received - II (FPR_II)' },
+  { code: 'CR_EF', label: 'Client Review - Efiling (CR_EF)' },
+  { code: 'CR_PF', label: 'Client Review - Paper Filing (CR_PF)' },
+  { code: 'EFP_I', label: 'Efiling Pending - I (EFP_I)' },
+  { code: 'EFP_II', label: 'Efiling Pending - II (EFP_II)' },
+  { code: 'EF_AA_I', label: 'E - Filed & Awaiting Acceptance - I (EF_AA_I)' },
+  { code: 'EF_AA_II', label: 'E - Filed & Awaiting Acceptance - II (EF_AA_II)' },
+  { code: 'EF_REJ', label: 'E - Filed & Rejected (EF_REJ)' },
+  { code: 'C_R', label: 'City Return (C_R)' },
+  { code: 'EFA_FC', label: 'E-Filing Accepted & Filing Complete (EFA_FC)' },
+  { code: 'PF_P', label: 'Paper Filing Pending (PF_P)' },
+  { code: 'PF_D', label: 'Paper Filing Done (PF_D)' },
+  { code: 'CANC', label: 'Cancelled (CANC)' },
+];
 
 /* ─── Toast ──────────────────────────────────────────── */
 function Toast({ message, type, onHide }) {
@@ -67,7 +97,7 @@ function DeleteModal({ isOpen, onClose, onConfirm, description }) {
 export default function DashboardContent() {
   const [items, setItems]             = useState([]);
   const [loading, setLoading]         = useState(true);
-  const [createOpen, setCreateOpen]   = useState(false);
+  const [showForm, setShowForm]       = useState(false);
   const [editItem, setEditItem]       = useState(null);
   const [deleteItem, setDeleteItem]   = useState(null);
   const [toast, setToast]             = useState(null);
@@ -150,7 +180,7 @@ export default function DashboardContent() {
   const showToast = (msg, type = 'success') => setToast({ msg, type });
 
   const handleSave = (data, error) => {
-    setCreateOpen(false);
+    setShowForm(false);
     setEditItem(null);
     if (error) {
       showToast(error, 'error');
@@ -158,6 +188,21 @@ export default function DashboardContent() {
       showToast(editItem ? 'Dashboard content updated successfully!' : 'Dashboard content created successfully!');
       fetchList(pagination.currentPage, pagination.limit, searchTerm, fileStatusFilter, statusFilter);
     }
+  };
+
+  const handleEdit = (item) => {
+    setEditItem(item);
+    setShowForm(true);
+  };
+
+  const handleCreate = () => {
+    setEditItem(null);
+    setShowForm(true);
+  };
+
+  const handleBackToList = () => {
+    setShowForm(false);
+    setEditItem(null);
   };
 
   const handleDelete = async () => {
@@ -361,21 +406,29 @@ function ImageThumb({ src, alt }) {
     );
   };
 
-  return (
-    <div className="dc-page">
-      <div className="dc-table-card">
-        <div className="dc-card-header">
-          <div className="dc-header-left">
-            <h2>Dashboard Content</h2>
-            <p>Manage dashboard entries with descriptions, file status, and banner images.</p>
-          </div>
-          <button className="dc-btn-create" onClick={() => setCreateOpen(true)}>
-            <Plus size={15} /> Add Content
-          </button>
-        </div>
+  return ( 
+    <>
+      {showForm ? (
+        <DashboardContentForm 
+          editData={editItem} 
+          onBack={handleBackToList}
+          onSave={handleSave}
+        />
+      ) : (
+        <div className="dc-page">
+          <div className="dc-table-card">
+            <div className="dc-card-header">
+              <div className="dc-header-left">
+                <h2>Dashboard Content</h2>
+                <p>Manage dashboard entries with descriptions, file status, and banner images.</p>
+              </div>
+              <button className="dc-btn-create" onClick={handleCreate}>
+                <Plus size={15} /> Add Content
+              </button>
+            </div>
 
-        {/* ── Filters ── */}
-        <div style={{
+            {/* ── Filters ── */}
+            <div style={{
           padding: '10px 20px 16px 20px',
           display: 'flex',
           alignItems: 'center',
@@ -535,7 +588,7 @@ function ImageThumb({ src, alt }) {
                             <button
                               className="dc-btn-icon dc-btn-edit"
                               title="Edit"
-                              onClick={() => setEditItem(item)}
+                              onClick={() => handleEdit(item)}
                             >
                               <Pencil size={13} />
                             </button>
@@ -557,26 +610,17 @@ function ImageThumb({ src, alt }) {
             </>
           )}
         </div>
-      </div>
 
-      <DashboardContentModal
-        isOpen={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSave={handleSave}
-        editData={null}
-      />
-      <DashboardContentModal
-        isOpen={!!editItem}
-        onClose={() => setEditItem(null)}
-        onSave={handleSave}
-        editData={editItem}
-      />
-      <DeleteModal
-        isOpen={!!deleteItem}
-        onClose={() => setDeleteItem(null)}
-        onConfirm={handleDelete}
-        description={deleteItem?.page_title || deleteItem?.description || deleteItem?.desc || ''}
-      />
+        <DeleteModal
+          isOpen={!!deleteItem}
+          onClose={() => setDeleteItem(null)}
+          onConfirm={handleDelete}
+          description={deleteItem?.page_title || deleteItem?.description || deleteItem?.desc || ''}
+        />
+      </div>
+    </div>
+    )}
+
       {toast && (
         <Toast
           message={toast.msg}
@@ -584,6 +628,6 @@ function ImageThumb({ src, alt }) {
           onHide={() => setToast(null)}
         />
       )}
-    </div>
+    </>
   );
 }

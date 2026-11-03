@@ -258,10 +258,28 @@
   overflow: hidden;
 }
 
-/* Full Component Width Modal (Constrained to fit screen nicely without overlapping sidebar) */
+/* Full Width Page Modal (Maximized to use full viewport) */
 .dc-modal-full {
-  max-width: 850px;
-  width: 90%;
+  max-width: 95vw;
+  width: 95%;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-modal-full .dc-modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dc-modal-full form {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.dc-modal-full .dc-modal-footer {
+  margin-top: auto;
 }
 
 @keyframes dcSlideUp {
@@ -313,6 +331,32 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
+}
+
+/* Full-width modal body with responsive grid */
+.dc-modal-full .dc-modal-body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.dc-modal-full .dc-form-left {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dc-modal-full .dc-form-right {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+@media (max-width: 992px) {
+  .dc-modal-full .dc-modal-body {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ── Form Fields ── */
@@ -589,3 +633,241 @@
   from { transform: translate(-50%, -40px); opacity: 0; }
   to   { transform: translate(-50%, 0);     opacity: 1; }
 }
+
+/* ========================================
+   CKEditor Custom Styles
+======================================== */
+
+/* ========================================
+   CKEditor Custom Styles
+======================================== */
+
+.dc-form-right-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 500px;
+  min-width: 0;
+}
+
+.dc-editor-wrapper {
+  width: 100%;
+  min-width: 0;
+  min-height: 500px;
+  height: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: visible;
+  display: block;
+  background: #ffffff;
+}
+
+.dc-editor-wrapper .ck-editor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.dc-editor-wrapper .ck-editor__top {
+  flex-shrink: 0;
+}
+
+.dc-editor-wrapper .ck.ck-toolbar {
+  border: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  border-radius: 8px 8px 0 0 !important;
+  background: #f9fafb !important;
+}
+
+.dc-editor-wrapper .ck-editor__main {
+  width: 100%;
+}
+
+.dc-editor-wrapper .ck.ck-editor__editable:not(.ck-editor__nested-editable) {
+  min-height: 420px !important;
+  max-height: 650px !important;
+  overflow-y: auto !important;
+  padding: 16px 20px !important;
+  border: none !important;
+  border-radius: 0 0 8px 8px !important;
+  background: #ffffff !important;
+}
+
+.dc-editor-wrapper .ck.ck-editor__editable:not(.ck-editor__nested-editable).ck-focused {
+  border: none !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 118, 163, 0.15) !important;
+}
+
+/* CKEditor 4 Fallback Styling */
+.dc-editor-wrapper .cke {
+  width: 100% !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.dc-editor-wrapper .cke_top {
+  border-bottom: 1px solid #e5e7eb !important;
+  background: #f9fafb !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+.dc-editor-wrapper .cke_bottom {
+  border-top: 1px solid #e5e7eb !important;
+  background: #f9fafb !important;
+  border-radius: 0 0 8px 8px !important;
+}
+
+.dc-editor-wrapper .cke_contents {
+  min-height: 420px !important;
+}
+
+/* CKEditor Content Styling */
+
+.dc-editor-wrapper .ck-content h1,
+.dc-editor-wrapper .ck-content h2,
+.dc-editor-wrapper .ck-content h3,
+.dc-editor-wrapper .ck-content h4 {
+  font-weight: 600;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.dc-editor-wrapper .ck-content p {
+  margin-bottom: 0.75em;
+}
+
+.dc-editor-wrapper .ck-content ul,
+.dc-editor-wrapper .ck-content ol {
+  margin-left: 1.5em;
+  margin-bottom: 0.75em;
+}
+
+.dc-editor-wrapper .ck-content blockquote {
+  border-left: 4px solid #0076a3;
+  padding-left: 1em;
+  margin-left: 0;
+  font-style: italic;
+  color: #64748b;
+}
+
+.dc-editor-wrapper .ck-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 1em;
+}
+
+.dc-editor-wrapper .ck-content table td,
+.dc-editor-wrapper .ck-content table th {
+  border: 1px solid #e5e7eb;
+  padding: 0.5em;
+}
+
+.dc-editor-wrapper .ck-content table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+
+/* ========================================
+   Full Page Form Styles
+======================================== */
+
+.dc-form-page-body {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+  padding: 24px;
+  align-items: stretch;
+  min-height: 550px;
+}
+
+.dc-form-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+
+.dc-form-right-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.dc-form-right-col .dc-form-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.dc-form-right-col .dc-form-group > label {
+  flex-shrink: 0;
+}
+
+.dc-editor-wrapper {
+  flex: 1;
+  min-height: 500px;
+}
+
+.dc-form-page-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border-light, #e5e7eb);
+  background: #f8fafc;
+}
+
+/* Responsive adjustments */
+
+@media (max-width: 1200px) {
+  .dc-form-page-body {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .dc-form-page-body {
+    grid-template-columns: 1fr;
+  }
+
+  .dc-form-left-col {
+    position: static;
+  }
+
+  .dc-form-right-col {
+    min-height: 450px;
+  }
+
+  .dc-editor-wrapper .ck.ck-editor__editable:not(.ck-editor__nested-editable) {
+    min-height: 400px !important;
+    max-height: 600px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .dc-page {
+    padding: 12px;
+  }
+
+  .dc-form-page-body {
+    padding: 16px;
+  }
+
+  .dc-card-header {
+    padding: 16px;
+  }
+
+  .dc-card-header button {
+    white-space: nowrap;
+  }
+
+  .dc-form-page-footer {
+    padding: 14px 16px;
+  }
+}
+
