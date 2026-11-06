@@ -4,6 +4,7 @@ import { getMemberDetails, WORKFLOW_STATUSES, INITIAL_COMMENTS, INITIAL_MEMBERS 
 import { URLS } from '../url';
 import * as XLSX from 'xlsx';
 import { formatDate } from '../utils/dateUtils';
+import { getUserRole } from '../utils/permissions';
 
 // DateTime formatting utility - MM/DD/YYYY HH:MM
 const formatDateTime = (dateString) => {
@@ -2672,6 +2673,11 @@ export default function MemberTableLayout({
   useEffect(() => {
     setNumericYear(String(selectedYear).replace('TY', ''));
   }, [selectedYear]);
+  // Role-Based Access Control (RBAC) for Excel export actions
+  const userRole = getUserRole(); // 'super_admin' | 'admin' | 'other'
+  const canExportPreviousYear = userRole === 'super_admin' || userRole === 'admin';
+  const canExportCurrentYear = userRole === 'super_admin';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [activeSubTab, setActiveSubTab] = useState(statusCode === 'all' ? '' : 'New');
@@ -3051,6 +3057,10 @@ useEffect(() => {
 
   // API Call: Export Previous Year Excel (All except current year)
   const handleExportPreviousYear = async () => {
+    if (!canExportPreviousYear) {
+      console.warn('⛔ Unauthorized: You do not have permission to export previous year members.');
+      return;
+    }
     // console.log('📤 Exporting Previous Year Members (excluding current year)');
     
     try {
@@ -3126,6 +3136,10 @@ useEffect(() => {
 
   // API Call: Export Current Year Excel
   const handleExportCurrentYear = async () => {
+    if (!canExportCurrentYear) {
+      console.warn('⛔ Unauthorized: You do not have permission to export current year members.');
+      return;
+    }
     try {
       const token = getAuthToken();
       // Backend expects: search and filestatus only (NO year_id)
@@ -3279,17 +3293,23 @@ useEffect(() => {
           <span className="pill-badge">Total {totalCount}</span>
         </div>
 
-        {/* Two Excel Download Cards in same row */}
-        <div className="excel-btn-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <button className="excel-download-btn-card" onClick={handleExportPreviousYear}>
-            <span className="excel-btn-top">⬇ Excel</span>
-            <span className="excel-btn-bottom">Note: Download All members except current year</span>
-          </button>
-          <button className="excel-download-btn-card" onClick={handleExportCurrentYear}>
-            <span className="excel-btn-top">⬇ Excel</span>
-            <span className="excel-btn-bottom">Note: Download All Members current year only</span>
-          </button>
-        </div>
+        {/* Two Excel Download Cards in same row (Role-based access control) */}
+        {(canExportPreviousYear || canExportCurrentYear) && (
+          <div className="excel-btn-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {canExportPreviousYear && (
+              <button className="excel-download-btn-card" onClick={handleExportPreviousYear}>
+                <span className="excel-btn-top">⬇ Excel</span>
+                <span className="excel-btn-bottom">Note: Download All members except current year</span>
+              </button>
+            )}
+            {canExportCurrentYear && (
+              <button className="excel-download-btn-card" onClick={handleExportCurrentYear}>
+                <span className="excel-btn-top">⬇ Excel</span>
+                <span className="excel-btn-bottom">Note: Download All Members current year only</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Loading Indicator */}

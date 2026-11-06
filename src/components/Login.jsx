@@ -165,10 +165,11 @@ export default function Login({ onLoginSuccess }) {
       const isSuperAdminUser = (
         rawStage === 'super' || 
         rawStage === 'superadmin' || 
-        userEmail === 'madhumoironix@gmail.com'
+        userEmail === 'madhumoironix@gmail.com' ||
+        userEmail === 'venkatbandarun@gmail.com'
       );
 
-      const adminStage = isSuperAdminUser ? 'super' : 'staff';
+      const adminStage = isSuperAdminUser ? 'super' : (rawStage === 'admin' ? 'admin' : 'staff');
       sessionStorage.setItem('adminStage', adminStage);
 
       // Store basic admin info

@@ -226,7 +226,7 @@ export function isSuperAdmin() {
       if (infoStage === 'staff' || infoStage === 'stage1' || infoStage === 'stage2' || infoStage === 'employee') {
         return false;
       }
-      if (infoStage === 'super' || infoStage === 'superadmin' || info?.email?.toLowerCase() === 'madhumoironix@gmail.com') {
+      if (infoStage === 'super' || infoStage === 'superadmin' || info?.email?.toLowerCase() === 'madhumoironix@gmail.com' || info?.email?.toLowerCase() === 'venkatbandarun@gmail.com') {
         return true;
       }
     } catch {}
@@ -238,7 +238,7 @@ export function isSuperAdmin() {
   if (!payload) return false;
 
   const email = (payload.email || payload.admin_email || '').toLowerCase();
-  if (email === 'madhumoironix@gmail.com') return true;
+  if (email === 'madhumoironix@gmail.com' || email === 'venkatbandarun@gmail.com') return true;
 
   const rawRole = typeof payload.role === 'string' ? payload.role : (payload.role?.roleName || payload.role?.name || '');
   const stage = (payload.admin_stage || payload.adminStage || payload.stage || rawRole || '').toLowerCase();
@@ -248,6 +248,59 @@ export function isSuperAdmin() {
   }
 
   return stage === 'super' || stage === 'superadmin' || payload.isSuperAdmin === true;
+}
+
+/* ─── Role identification helper ────────────────────────── */
+export function getUserRole() {
+  if (isSuperAdmin()) return 'super_admin';
+
+  const storedStage = (
+    sessionStorage.getItem('adminStage') ||
+    localStorage.getItem('adminStage') ||
+    ''
+  ).trim().toLowerCase();
+
+  if (storedStage === 'super' || storedStage === 'superadmin') return 'super_admin';
+  // if (storedStage === 'admin') return 'admin';
+
+  const storedInfo = sessionStorage.getItem('adminInfo') || localStorage.getItem('adminInfo');
+  if (storedInfo) {
+    try {
+      const info = JSON.parse(storedInfo);
+      const stage = (info?.stage || info?.admin_stage || info?.role || info?.userType || '').toString().toLowerCase();
+      const email = (info?.email || '').toLowerCase();
+      if (email === 'madhumoironix@gmail.com' || email === 'venkatbandarun@gmail.com' || stage === 'super' || stage === 'superadmin') {
+        return 'super_admin';
+      }
+      // if (stage === 'admin') return 'admin';
+    } catch {}
+  }
+
+  const token = getToken();
+  if (token) {
+    const payload = decodeJwt(token);
+    if (payload) {
+      const email = (payload.email || payload.admin_email || '').toLowerCase();
+      if (email === 'madhumoironix@gmail.com' || email === 'venkatbandarun@gmail.com') return 'super_admin';
+
+      const rawRole = typeof payload.role === 'string'
+        ? payload.role
+        : (payload.role?.roleName || payload.role?.name || '');
+      const stage = (payload.admin_stage || payload.adminStage || payload.stage || rawRole || payload.userType || '').toString().toLowerCase();
+
+      if (stage === 'super' || stage === 'superadmin' || payload.isSuperAdmin === true) {
+        return 'super_admin';
+      }
+      // if (stage === 'admin') return 'admin';
+    }
+  }
+
+  return 'other';
+}
+
+export function isUserAdmin() {
+  const role = getUserRole();
+  return role === 'super_admin' || role === 'admin';
 }
 
 /* ─── Permission getters ────────────────────────────────── */
