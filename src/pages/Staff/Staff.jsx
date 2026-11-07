@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Users, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { URLS } from '../../url';
 import { formatDate } from '../../utils/dateUtils';
+import Pagination from '../../components/Pagination';
 import StaffModal from './StaffModal';
 import './Staff.css';
 
@@ -75,6 +76,8 @@ export default function Staff() {
   const [roles, setRoles]           = useState([]);
   const [loading, setLoading]       = useState(true);
   const [search, setSearch]         = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 20;
   const [createOpen, setCreateOpen] = useState(false);
   const [editMember, setEditMember] = useState(null);
   const [deleteMember, setDeleteMember] = useState(null);
@@ -192,6 +195,9 @@ export default function Staff() {
     );
   });
 
+  const totalPages = Math.ceil(filtered.length / limit) || 1;
+  const paginatedStaff = filtered.slice((currentPage - 1) * limit, currentPage * limit);
+
   /* ─── Role name resolver ─── */
 const getRoleName = (member) => {
   if (typeof member.role === 'object' && member.role) {
@@ -222,7 +228,10 @@ const getRoleName = (member) => {
             type="text"
             placeholder="Search by name, email, role, stage or code..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
           />
         </div>
 
@@ -250,9 +259,9 @@ const getRoleName = (member) => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((member, idx) => (
+                {paginatedStaff.map((member, idx) => (
                   <tr key={member._id || idx}>
-                    <td>{idx + 1}</td>
+                    <td>{(currentPage - 1) * limit + idx + 1}</td>
                     <td>
                       <div className="st-name-cell">
                         <div className="st-avatar">{initials(member.first_name + ' ' + member.last_name)}</div>
@@ -297,6 +306,19 @@ const getRoleName = (member) => {
             </table>
           )}
         </div>
+
+        {!loading && filtered.length > 0 && (
+          <div style={{ padding: '0 16px 16px 16px' }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalRecords={filtered.length}
+              limit={limit}
+              count={paginatedStaff.length}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       {/* Modals */}

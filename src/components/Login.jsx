@@ -181,8 +181,9 @@ export default function Login({ onLoginSuccess }) {
       sessionStorage.setItem('adminInfo', JSON.stringify(adminInfo));
 
       // Resolve & store permissions if not super admin
+      let resolvedPerms = [];
       if (adminStage !== 'super') {
-        await resolveStaffPermissions(token, URLS.Base, data, payload);
+        resolvedPerms = (await resolveStaffPermissions(token, URLS.Base, data, payload)) || [];
       } else {
         sessionStorage.removeItem('adminPermissions');
       }
@@ -190,7 +191,7 @@ export default function Login({ onLoginSuccess }) {
       setShowOtpModal(false);
       setInfoMsg('Authentication verified. Redirecting to dashboard...');
       setTimeout(() => {
-        onLoginSuccess();
+        onLoginSuccess(resolvedPerms);
       }, 800);
     } catch (err) {
       setOtpError('Unable to connect to verification server. Please try again.');

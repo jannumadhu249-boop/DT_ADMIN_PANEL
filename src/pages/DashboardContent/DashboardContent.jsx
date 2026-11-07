@@ -290,8 +290,27 @@ function ImageThumb({ src, alt }) {
     const { currentPage, totalPages, totalRecords } = pagination;
     if (totalPages <= 1) return null;
     const pages = [];
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push(i);
+    pages.push(1);
+    if (totalPages <= 7) {
+      for (let i = 2; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      if (currentPage <= 3) {
+        for (let i = 2; i <= 4; i++) pages.push(i);
+        pages.push('...');
+        pages.push(totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push('...');
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
+      } else {
+        pages.push('...');
+        pages.push(currentPage - 1);
+        pages.push(currentPage);
+        pages.push(currentPage + 1);
+        pages.push('...');
+        pages.push(totalPages);
+      }
     }
     return (
       <div className="dc-pagination-wrapper" style={{
@@ -331,33 +350,39 @@ function ImageThumb({ src, alt }) {
           >
             Previous
           </button>
-          {pages.map(page => (
-            <button
-              key={page}
-              onClick={() => goToPage(page)}
-              style={{
-                padding: '6px 14px',
-                border: '1px solid',
-                borderColor: currentPage === page ? '#0076a3' : '#e2e8f0',
-                borderRadius: '8px',
-                background: currentPage === page ? '#0076a3' : '#ffffff',
-                color: currentPage === page ? '#ffffff' : '#334155',
-                fontWeight: currentPage === page ? '600' : '500',
-                cursor: 'pointer',
-                fontSize: '13px',
-                transition: 'all 0.15s',
-                minWidth: '36px',
-              }}
-              onMouseEnter={(e) => {
-                if (currentPage !== page) e.currentTarget.style.background = '#f1f5f9';
-              }}
-              onMouseLeave={(e) => {
-                if (currentPage !== page) e.currentTarget.style.background = '#ffffff';
-              }}
-            >
-              {page}
-            </button>
-          ))}
+          {pages.map((page, idx) =>
+            page === '...' ? (
+              <span key={`ellipsis-${idx}`} style={{ padding: '0 8px', color: '#94a3b8', fontSize: '13px' }}>
+                ...
+              </span>
+            ) : (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                style={{
+                  padding: '6px 14px',
+                  border: '1px solid',
+                  borderColor: currentPage === page ? '#0076a3' : '#e2e8f0',
+                  borderRadius: '8px',
+                  background: currentPage === page ? '#0076a3' : '#ffffff',
+                  color: currentPage === page ? '#ffffff' : '#334155',
+                  fontWeight: currentPage === page ? '600' : '500',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  transition: 'all 0.15s',
+                  minWidth: '36px',
+                }}
+                onMouseEnter={(e) => {
+                  if (currentPage !== page) e.currentTarget.style.background = '#f1f5f9';
+                }}
+                onMouseLeave={(e) => {
+                  if (currentPage !== page) e.currentTarget.style.background = '#ffffff';
+                }}
+              >
+                {page}
+              </button>
+            )
+          )}
           <button
             onClick={() => goToPage(currentPage + 1)}
             disabled={currentPage === totalPages}

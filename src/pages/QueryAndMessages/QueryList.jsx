@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { URLS } from '../../url';
 import { formatDate } from '../../utils/dateUtils';
+import Pagination from '../../components/Pagination';
 
 // Helper to get auth token – adjust based on your app's storage
 const getAuthToken = () => {
@@ -286,44 +287,16 @@ export default function QueryList() {
       </div>
 
       {/* Pagination */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-        <div className="pagination-row">
-          <button
-            className="page-link-btn"
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-          >
-            First
-          </button>
-          <button
-            className="page-link-btn"
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-          >
-            &lt;
-          </button>
-
-          {renderPageNumbers()}
-
-          <button
-            className="page-link-btn"
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages || totalPages === 0}
-          >
-            &gt;
-          </button>
-          <button
-            className="page-link-btn"
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
-          >
-            Last
-          </button>
-        </div>
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalRecords)} of {totalRecords} entries
-        </div>
-      </div>
+      {totalRecords > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={totalRecords}
+          limit={limit}
+          count={queries.length}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   );
 }

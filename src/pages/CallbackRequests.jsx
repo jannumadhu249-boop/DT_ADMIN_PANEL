@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { formatDate } from '../utils/dateUtils';
+import Pagination from '../components/Pagination';
 
 export default function CallbackRequests() {
   const [searchEmail, setSearchEmail] = useState('');
@@ -176,10 +177,13 @@ export default function CallbackRequests() {
     setCurrentPage(1);
   };
 
+  const limit = 20;
   const filteredRequests = initialRequests.filter((req) => {
     if (!filterQuery) return true;
     return req.email.toLowerCase().includes(filterQuery.toLowerCase());
   });
+  const totalPages = Math.ceil(filteredRequests.length / limit) || 1;
+  const paginatedRequests = filteredRequests.slice((currentPage - 1) * limit, currentPage * limit);
 
   return (
     <div className="content-card" style={{ animation: 'fadeIn 0.2s ease-out' }}>
@@ -254,10 +258,10 @@ export default function CallbackRequests() {
             </tr>
           </thead>
           <tbody>
-            {filteredRequests.length > 0 ? (
-              filteredRequests.map((req, idx) => (
+            {paginatedRequests.length > 0 ? (
+              paginatedRequests.map((req, idx) => (
                 <tr key={req.sNo}>
-                  <td>{idx + 1}</td>
+                  <td>{(currentPage - 1) * limit + idx + 1}</td>
                   <td style={{ fontWeight: '500' }}>{req.name}</td>
                   <td>
                     <a href={`mailto:${req.email}`} style={{ color: '#0076a3', textDecoration: 'none' }}>
@@ -281,18 +285,16 @@ export default function CallbackRequests() {
       </div>
 
       {/* Pagination Row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-        <div className="pagination-row">
-          <button className={`page-link-btn ${currentPage === 1 ? 'active' : ''}`} onClick={() => setCurrentPage(1)}>1</button>
-          <button className={`page-link-btn ${currentPage === 2 ? 'active' : ''}`} onClick={() => setCurrentPage(2)}>2</button>
-          <button className={`page-link-btn ${currentPage === 3 ? 'active' : ''}`} onClick={() => setCurrentPage(3)}>3</button>
-          <button className="page-link-btn">&gt;</button>
-          <button className="page-link-btn">Last</button>
-        </div>
-        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-          Showing 1 to {filteredRequests.length} of {filteredRequests.length} entries
-        </div>
-      </div>
+      {filteredRequests.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={filteredRequests.length}
+          limit={limit}
+          count={paginatedRequests.length}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   );
 }

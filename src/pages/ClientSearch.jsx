@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { URLS } from '../url';
 import { formatDate } from '../utils/dateUtils';
+import Pagination from '../components/Pagination';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -605,7 +606,9 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
   const [fileInfoSuccessMsg, setFileInfoSuccessMsg] = useState('');
   const [fileInfoErrorMsg, setFileInfoErrorMsg] = useState('');
 
-  // ---- Upload state ----
+  // ---- Upload & Year state for member view ----
+  const [detailYearId, setDetailYearId] = useState('');
+  const [uploadYearId, setUploadYearId] = useState('');
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadDocName, setUploadDocName] = useState('');
   const [uploadDocTypeId, setUploadDocTypeId] = useState('');
@@ -727,12 +730,14 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
   };
 
   // ---- Payment API functions ----
-  const fetchPaymentHistory = async (memberId) => {
+  const fetchPaymentHistory = async (memberId, targetYearId) => {
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId);
     setLoadingPaymentHistory(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetPayList}${memberId}`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetPayList}${memberId}${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
@@ -769,7 +774,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       if (data.success) {
         setPaymentSuccess(data.message || 'Payment added successfully!');
         setPayAmount('');
-        await fetchPaymentHistory(selectedMember._id);
+        await fetchPaymentHistory(selectedMember._id, detailYearId || currentYearId);
       } else {
         setPaymentError(data.message || 'Failed to add payment.');
       }
@@ -872,12 +877,14 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
   };
 
     // ---- Fetch admin‑uploaded documents ----
-    const fetchAdminUploadedDocs = async (memberId) => {
+    const fetchAdminUploadedDocs = async (memberId, targetYearId) => {
       if (!memberId) return;
+      const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId);
       setLoadingAdminDocs(true);
       try {
         const token = getAuthToken();
-        const res = await fetch(`${URLS.GetUploadList}${memberId}`, {
+        const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+        const res = await fetch(`${URLS.GetUploadList}${memberId}${queryParam}`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -924,6 +931,10 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       formData.append('document', uploadFile);
       formData.append('document_type_id', uploadDocTypeId);
       formData.append('document_name', uploadDocName.trim() || uploadFile.name);
+      const activeYear = uploadYearId || detailYearId || currentYearId;
+      if (activeYear) {
+        formData.append('year_id', activeYear);
+      }
 
       const res = await fetch(`${URLS.UploadDocuments}${memberId}`, {
         method: 'POST',
@@ -933,11 +944,12 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       const result = await res.json();
       if (res.ok && result.success) {
         setUploadSuccess(result.message || 'Document uploaded successfully.');
-        await fetchAdminUploadedDocs(memberId);
-        await fetchMemberProfile(memberId);
+        await fetchAdminUploadedDocs(memberId, detailYearId || currentYearId);
+        await fetchMemberProfile(memberId, detailYearId || currentYearId);
         setUploadFile(null);
         setUploadDocName('');
         setUploadDocTypeId('');
+        setUploadYearId(detailYearId || currentYearId);
         if (fileInputRef.current) fileInputRef.current.value = '';
         setTimeout(() => setUploadSuccess(''), 4000);
       } else {
@@ -1065,12 +1077,14 @@ const handleDeleteDoc = async (docId) => {
   };
 
   // ---- Fetch member profile ----
-  const fetchMemberProfile = async (memberId) => {
+  const fetchMemberProfile = async (memberId, targetYearId) => {
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId);
     setLoadingProfile(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetMemberView}${memberId}/profile`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetMemberView}${memberId}/profile${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
@@ -1101,23 +1115,22 @@ const handleDeleteDoc = async (docId) => {
     }
   };
 
-  // ---- Fetch admin docs when member changes ----
+  // ---- Refresh data on tab or year change ----
   useEffect(() => {
     const memberId = selectedMember?._id || selectedMember?.sNo;
-    if (memberId) {
-      fetchAdminUploadedDocs(memberId);
+    if (!memberId) return;
+    const activeYear = detailYearId || currentYearId;
+
+    if (['personal', 'spouse', 'dependent', 'bank', 'address', 'download', 'interview'].includes(activeDetailTab)) {
+      fetchMemberProfile(memberId, activeYear);
+    } else if (activeDetailTab === 'pay') {
+      fetchPaymentHistory(memberId, activeYear);
+    } else if (activeDetailTab === 'upload') {
+      fetchAdminUploadedDocs(memberId, activeYear);
+    } else if (activeDetailTab === 'fileInfo') {
+      fetchFileInfoHistory(memberId);
     }
-  }, [member]);
-  
-  // ---- Also fetch when upload tab becomes active ----
-  useEffect(() => {
-    if (activeDetailTab === 'upload') {
-      const memberId = selectedMember?._id || selectedMember?.sNo;
-      if (memberId) {
-        fetchAdminUploadedDocs(memberId);
-      }
-    }
-  }, [activeDetailTab]);
+  }, [selectedMember?._id, activeDetailTab, detailYearId]);
 
   // ---- OTP field click handler (immediate open) ----
   const handleFieldClick = async (fieldKey, label, requiresOtp = true, memberId = null, otpType = 'email') => {
@@ -1213,6 +1226,9 @@ const handleDeleteDoc = async (docId) => {
 
   const handleSelectMember = (client) => {
     setSelectedMember(client);
+    const yId = client.year_id || currentYearId;
+    setDetailYearId(yId);
+    setUploadYearId(yId);
     const dummyProfile = buildProfileFromClient(client);
     setProfileData(dummyProfile);
     setActiveDetailTab('personal');
@@ -1220,7 +1236,7 @@ const handleDeleteDoc = async (docId) => {
     setFileTypeInput(client.file_type || 'E-Filing');
     setStatusHistory([]);
     setPaymentHistory([]);
-    fetchMemberProfile(client._id);
+    fetchMemberProfile(client._id, yId);
     setTimeout(() => {
       setStatusHistory([
         {
@@ -1272,16 +1288,6 @@ const handleDeleteDoc = async (docId) => {
       }
     }
   }, [searchTerm, currentYearId]);
-  useEffect(() => {
-    if (selectedMember?._id && activeDetailTab === 'pay') {
-      fetchPaymentHistory(selectedMember._id);
-    }
-  }, [selectedMember, activeDetailTab]);
-  useEffect(() => {
-    if (selectedMember?._id && activeDetailTab === 'fileInfo') {
-      fetchFileInfoHistory(selectedMember._id);
-    }
-  }, [selectedMember, activeDetailTab]);
 
   // ---- Render ----
   return (
@@ -1289,18 +1295,38 @@ const handleDeleteDoc = async (docId) => {
       {selectedMember ? (
         // ==================== DETAIL VIEW ====================
         <div className="detail-view-container" style={{ animation: 'fadeIn 0.2s ease-out' }}>
-          <button className="detail-back-btn" onClick={() => { setSelectedMember(null); setActiveDetailTab('personal'); setProfileData(null); }}>
+          <button className="detail-back-btn" onClick={() => { setSelectedMember(null); setActiveDetailTab('personal'); setProfileData(null); setDetailYearId(''); }}>
             <ChevronLeft size={16} style={{ display: 'inline', marginRight: '4px' }} /> Back
           </button>
 
           {/* Quick Info Bar */}
-          <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '13px' }}>
-            <strong style={{ fontSize: '15px', color: '#0076a3' }}>
-              {profileData?.personalInfo ? `${profileData.personalInfo.first_name || ''} ${profileData.personalInfo.last_name || ''}`.trim() : `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim()}
-            </strong>
-            &nbsp;|&nbsp; File No: <strong>{selectedMember.file_no}</strong>
-            &nbsp;|&nbsp; {selectedMember.file_type}
-            &nbsp;|&nbsp; <span style={{ color: statusColor(selectedMember.filestatus_name || selectedMember.current_stage), fontWeight: 600 }}>{selectedMember.filestatus_name || selectedMember.current_stage}</span>
+          <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <div>
+              <strong style={{ fontSize: '15px', color: '#0076a3' }}>
+                {profileData?.personalInfo ? `${profileData.personalInfo.first_name || ''} ${profileData.personalInfo.last_name || ''}`.trim() : `${selectedMember.first_name || ''} ${selectedMember.last_name || ''}`.trim()}
+              </strong>
+              &nbsp;|&nbsp; File No: <strong>{selectedMember.file_no}</strong>
+              &nbsp;|&nbsp; {selectedMember.file_type}
+              &nbsp;|&nbsp; <span style={{ color: statusColor(selectedMember.filestatus_name || selectedMember.current_stage), fontWeight: 600 }}>{selectedMember.filestatus_name || selectedMember.current_stage}</span>
+            </div>
+            {years.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <label style={{ fontWeight: 600, color: '#475569', fontSize: '12px' }}>Tax Year:</label>
+                <select
+                  value={detailYearId || currentYearId}
+                  onChange={(e) => {
+                    const newYearId = e.target.value;
+                    setDetailYearId(newYearId);
+                    setUploadYearId(newYearId);
+                  }}
+                  style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 600, color: '#0f172a', background: '#fff' }}
+                >
+                  {years.map(y => (
+                    <option key={y._id} value={y._id}>Tax Year {y.name || y.year_name || y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* 10-Tab Ribbon */}
@@ -1752,7 +1778,7 @@ const handleDeleteDoc = async (docId) => {
                 )}
 
                 <form onSubmit={handleUploadDocument} style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '650px', margin: '0 auto' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>Document Name <span style={{ color: '#dc2626' }}>*</span></label>
                       <input type="text" value={uploadDocName} onChange={e => setUploadDocName(e.target.value)} placeholder="e.g. Statement / Provisional PDF" required style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} />
@@ -1767,6 +1793,16 @@ const handleDeleteDoc = async (docId) => {
                         <option value="filed_return_for_records">Filed Return For Records</option>
                       </select>
                     </div>
+                    {years.length > 0 && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>Tax Year</label>
+                        <select value={uploadYearId || detailYearId || currentYearId} onChange={e => setUploadYearId(e.target.value)} style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', background: '#fff' }}>
+                          {years.map(y => (
+                            <option key={y._id} value={y._id}>Tax Year {y.name || y.year_name || y}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -2129,18 +2165,14 @@ const handleDeleteDoc = async (docId) => {
               </div>
 
               {clients.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                  <div className="pagination-row" style={{ display: 'flex', gap: '4px' }}>
-                    <button className="page-link-btn" style={{ padding: '6px 12px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(pagination.currentPage - 1)} disabled={pagination.currentPage <= 1}>Prev</button>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} className="page-link-btn" style={{ padding: '6px 12px', border: p === pagination.currentPage ? '1px solid #0076a3' : '1px solid #ccc', background: p === pagination.currentPage ? '#0076a3' : '#fff', color: p === pagination.currentPage ? '#fff' : '#000', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(p)}>{p}</button>
-                    ))}
-                    <button className="page-link-btn" style={{ padding: '6px 12px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(pagination.currentPage + 1)} disabled={pagination.currentPage >= pagination.totalPages}>Next</button>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#555' }}>
-                    Showing {(pagination.currentPage - 1) * pagination.limit + 1} to {Math.min(pagination.currentPage * pagination.limit, pagination.totalRecords)} of {pagination.totalRecords} entries
-                  </div>
-                </div>
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalRecords={pagination.totalRecords}
+                  limit={pagination.limit}
+                  count={clients.length}
+                  onPageChange={handlePageChange}
+                />
               )}
             </>
           )}

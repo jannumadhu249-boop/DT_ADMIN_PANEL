@@ -6,6 +6,8 @@
  * resolve staff role permissions from backend APIs, and filter sidebar/navbar components.
  */
 
+import { URLS } from '../url';
+
 /* ─── String Normalizer ─────────────────────────────────── */
 export function normalize(str) {
   if (!str || typeof str !== 'string') return '';
@@ -413,15 +415,157 @@ export function getFirstPermittedTab() {
   return 'all-registered';
 }
 
+/* ─── Safe Network JSON fetcher ──────────────────────────── */
+async function safeFetchJson(url, options = {}) {
+  try {
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      if (res.status === 404) {
+        console.warn(`[RBAC] Endpoint not found (404): ${url}`);
+      } else if (res.status === 401 || res.status === 403) {
+        console.warn(`[RBAC] Access restricted/unauthorized (${res.status}): ${url}`);
+      } else {
+        console.warn(`[RBAC] Request failed (${res.status}): ${url}`);
+      }
+      return { ok: false, status: res.status, data: null };
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      console.warn(`[RBAC] Expected JSON response but received ${contentType} from ${url}`);
+      return { ok: false, status: res.status, data: null, notJson: true };
+    }
+
+    const json = await res.json();
+    return { ok: true, status: res.status, data: json };
+  } catch (err) {
+    console.warn(`[RBAC] Network error while reaching ${url}:`, err.message || err);
+    return { ok: false, status: 0, error: err };
+  }
+}
+
 /* ─── Fetch role permissions by role ID ──────────────────── */
 export async function fetchAndStorePermissions(roleId, token, baseUrl) {
   if (!token) return null;
-  const cleanBase = (baseUrl || '').replace(/\/+$/, '') + '/';
+  const cleanBase = (baseUrl || URLS.Base || '').replace(/\/+$/, '') + '/';
 
-  // Strategy 1: getRoleById via POST / GET if roleId provided
+  // Strategy 1: getRoleById via verified URLS.GetByIdRole
   if (roleId) {
+    const getRoleByIdUrl = `${URLS.GetByIdRole || `${cleanBase}v1/dollarTax/admin/role/getRoleById/`}${roleId}`;
+    const result = await safeFetchJson(getRoleByIdUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (result.ok && result.data && result.data.success !== false) {
+      const roleData = result.data.data || result.data.result || result.data;
+      const permissions = roleData.permissions || roleData.role?.permissions || [];
+      if (Array.isArray(permissions) && permissions.length > 0) {
+        sessionStorage.setItem('adminPermissions', JSON.stringify(permissions));
+        return permissions;
+      }
+    }
+  }
+
+  // Strategy 2: Call getActiveRoles / getRoles to fetch all active roles & find matching role
+  const rolesUrls = [
+    URLS.GetActiveRoles || `${cleanBase}v1/dollarTax/admin/role/getActiveRoles`,
+    URLS.GetRoles || `${cleanBase}v1/dollarTax/admin/role/getRoles`,
+  ];
+
+  for (const rolesUrl of rolesUrls) {
+    const result = await safeFetchJson(rolesUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+
+    if (result.ok && result.data && result.data.success !== false) {
+      const rolesList = result.data.data || result.data.result || [];
+      if (Array.isArray(rolesList) && rolesList.length > 0) {
+        const matched = roleId ? rolesList.find(r => 
+          (r._id === roleId || r.id === roleId || String(r._id) === String(roleId)) ||
+          (r.name && String(r.name).toLowerCase() === String(roleId).toLowerCase()) ||
+          (r.roleName && String(r.roleName).toLowerCase() === String(roleId).toLowerCase())
+        ) : null;
+
+        if (matched && Array.isArray(matched.permissions) && matched.permissions.length > 0) {
+          sessionStorage.setItem('adminPermissions', JSON.stringify(matched.permissions));
+          return matched.permissions;
+        }
+      }
+    }
+  }
+
+  // Safe fallback: empty permissions (no unauthorized escalation to Super Admin)
+  sessionStorage.setItem('adminPermissions', JSON.stringify([]));
+  return [];
+}
+
+/* ─── In-flight request deduplication cache ───────────────── */
+let resolvingPermissionsPromise = null;
+
+/* ─── Multi-strategy Staff Permission Resolver ────────────── */
+export async function resolveStaffPermissions(token, baseUrl, loginResponseData = {}, jwtPayload = {}) {
+  if (!token) return null;
+
+  // Prevent duplicate concurrent requests during login / page load
+  if (resolvingPermissionsPromise) {
+    return resolvingPermissionsPromise;
+  }
+
+  resolvingPermissionsPromise = (async () => {
     try {
-      const res = await fetch(`${cleanBase}v1/minimumTax/admin/role/getRoleById/${roleId}`, {
+      const cleanBase = (baseUrl || URLS.Base || '').replace(/\/+$/, '') + '/';
+
+      // 1. Direct permissions in login response or JWT
+      const directPermissions = 
+        loginResponseData?.data?.permissions ||
+        loginResponseData?.data?.role?.permissions ||
+        loginResponseData?.data?.admin?.role?.permissions ||
+        loginResponseData?.data?.admin?.permissions ||
+        loginResponseData?.permissions ||
+        loginResponseData?.role?.permissions ||
+        loginResponseData?.admin?.role?.permissions ||
+        jwtPayload?.permissions ||
+        jwtPayload?.role?.permissions;
+
+      if (Array.isArray(directPermissions) && directPermissions.length > 0) {
+        sessionStorage.setItem('adminPermissions', JSON.stringify(directPermissions));
+        return directPermissions;
+      }
+
+      // 2. Extract roleId or adminId
+      let roleId = 
+        loginResponseData?.data?.role_id ||
+        loginResponseData?.data?.roleId ||
+        (typeof loginResponseData?.data?.role === 'string' ? loginResponseData?.data?.role : loginResponseData?.data?.role?._id) ||
+        loginResponseData?.data?.admin?.role_id ||
+        loginResponseData?.data?.admin?.roleId ||
+        (typeof loginResponseData?.data?.admin?.role === 'string' ? loginResponseData?.data?.admin?.role : loginResponseData?.data?.admin?.role?._id) ||
+        jwtPayload?.role_id ||
+        jwtPayload?.roleId ||
+        (typeof jwtPayload?.role === 'string' ? jwtPayload?.role : jwtPayload?.role?._id);
+
+      const adminId = 
+        jwtPayload?.admin_id || 
+        jwtPayload?.adminId || 
+        jwtPayload?.id || 
+        jwtPayload?._id || 
+        loginResponseData?.data?.admin_id ||
+        loginResponseData?.data?.id ||
+        loginResponseData?.data?._id;
+
+      // 3. Attempt getProfile to fetch exact employee role/permissions
+      const profileUrl = URLS.GetProfile || `${cleanBase}v1/dollarTax/admin/auth/getProfile`;
+      const profileResult = await safeFetchJson(profileUrl, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -429,119 +573,9 @@ export async function fetchAndStorePermissions(roleId, token, baseUrl) {
         },
         body: JSON.stringify({}),
       });
-      const json = await res.json();
-      if (res.ok && json.success !== false) {
-        const roleData = json.data || json.result || json;
-        const permissions = roleData.permissions || roleData.role?.permissions || [];
-        if (permissions.length > 0) {
-          sessionStorage.setItem('adminPermissions', JSON.stringify(permissions));
-          return permissions;
-        }
-      }
-    } catch (e) {
-      console.warn('POST getRoleById error:', e);
-    }
 
-    try {
-      const res = await fetch(`${cleanBase}v1/minimumTax/admin/role/getRoleById/${roleId}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const json = await res.json();
-      if (res.ok && json.success !== false) {
-        const roleData = json.data || json.result || json;
-        const permissions = roleData.permissions || roleData.role?.permissions || [];
-        if (permissions.length > 0) {
-          sessionStorage.setItem('adminPermissions', JSON.stringify(permissions));
-          return permissions;
-        }
-      }
-    } catch (e) {
-      console.warn('GET getRoleById error:', e);
-    }
-  }
-
-  // Strategy 2: Call getRoles to fetch all active roles & find matching role
-  try {
-    const res = await fetch(`${cleanBase}v1/minimumTax/admin/role/getRoles`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
-    const json = await res.json();
-    if (res.ok && json.success !== false) {
-      const rolesList = json.data || json.result || [];
-      if (Array.isArray(rolesList) && rolesList.length > 0) {
-        const matched = roleId ? rolesList.find(r => 
-          (r._id === roleId || r.id === roleId || String(r._id) === String(roleId)) ||
-          r.name === roleId || r.roleName === roleId
-        ) : null;
-
-        if (matched && matched.permissions) {
-          sessionStorage.setItem('adminPermissions', JSON.stringify(matched.permissions));
-          return matched.permissions;
-        }
-      }
-    }
-  } catch (e) {
-    console.warn('getRoles fallback error:', e);
-  }
-
-  sessionStorage.setItem('adminPermissions', JSON.stringify([]));
-  return [];
-}
-
-/* ─── Multi-strategy Staff Permission Resolver ────────────── */
-export async function resolveStaffPermissions(token, baseUrl, loginResponseData = {}, jwtPayload = {}) {
-  if (!token) return null;
-  const cleanBase = (baseUrl || '').replace(/\/+$/, '') + '/';
-
-  // 1. Direct permissions in login response or JWT
-  const directPermissions = 
-    loginResponseData?.data?.permissions ||
-    loginResponseData?.data?.role?.permissions ||
-    loginResponseData?.data?.admin?.role?.permissions ||
-    loginResponseData?.permissions ||
-    loginResponseData?.role?.permissions ||
-    jwtPayload?.permissions ||
-    jwtPayload?.role?.permissions;
-
-  if (Array.isArray(directPermissions) && directPermissions.length > 0) {
-    sessionStorage.setItem('adminPermissions', JSON.stringify(directPermissions));
-    return directPermissions;
-  }
-
-  // 2. Extract roleId
-  let roleId = 
-    loginResponseData?.data?.role_id ||
-    loginResponseData?.data?.roleId ||
-    (typeof loginResponseData?.data?.role === 'string' ? loginResponseData?.data?.role : loginResponseData?.data?.role?._id) ||
-    loginResponseData?.data?.admin?.role_id ||
-    (typeof loginResponseData?.data?.admin?.role === 'string' ? loginResponseData?.data?.admin?.role : loginResponseData?.data?.admin?.role?._id) ||
-    jwtPayload?.role_id ||
-    jwtPayload?.roleId ||
-    (typeof jwtPayload?.role === 'string' ? jwtPayload?.role : jwtPayload?.role?._id);
-
-  // 3. Attempt getProfile to fetch exact employee role/permissions
-  try {
-    const profileRes = await fetch(`${cleanBase}v1/minimumTax/admin/auth/getProfile`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({}),
-    });
-    if (profileRes.ok) {
-      const profileJson = await profileRes.json();
-      if (profileJson.success && profileJson.data) {
-        const pData = profileJson.data;
+      if (profileResult.ok && profileResult.data && profileResult.data.success !== false) {
+        const pData = profileResult.data.data || profileResult.data.result || profileResult.data;
         if (Array.isArray(pData.permissions) && pData.permissions.length > 0) {
           sessionStorage.setItem('adminPermissions', JSON.stringify(pData.permissions));
           return pData.permissions;
@@ -554,38 +588,37 @@ export async function resolveStaffPermissions(token, baseUrl, loginResponseData 
           roleId = pData.role_id || pData.roleId || (typeof pData.role === 'string' ? pData.role : pData.role?._id);
         }
       }
-    }
-  } catch (e) {
-    console.warn('Could not fetch profile for permissions:', e);
-  }
 
-  // 4. If roleId missing, attempt getStaffById
-  const adminId = jwtPayload?.admin_id || jwtPayload?.adminId || jwtPayload?.id || jwtPayload?._id || loginResponseData?.data?.admin_id;
-  if (!roleId && adminId) {
-    try {
-      const staffRes = await fetch(`${cleanBase}v1/minimumTax/admin/staff/getStaffById/${adminId}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      const staffJson = await staffRes.json();
-      if (staffRes.ok && staffJson.data) {
-        const staffMember = staffJson.data;
-        roleId = staffMember.role_id || staffMember.role?._id || staffMember.role;
-        if (Array.isArray(staffMember.role?.permissions) && staffMember.role.permissions.length > 0) {
-          sessionStorage.setItem('adminPermissions', JSON.stringify(staffMember.role.permissions));
-          return staffMember.role.permissions;
+      // 4. If roleId missing, attempt getStaffById
+      if (!roleId && adminId) {
+        const staffUrl = `${URLS.GetByIdStaff || `${cleanBase}v1/dollarTax/admin/staff/getStaffById/`}${adminId}`;
+        const staffResult = await safeFetchJson(staffUrl, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        });
+
+        if (staffResult.ok && staffResult.data && staffResult.data.success !== false) {
+          const staffMember = staffResult.data.data || staffResult.data.result || staffResult.data;
+          roleId = staffMember.role_id || staffMember.role?._id || staffMember.role;
+          if (Array.isArray(staffMember.role?.permissions) && staffMember.role.permissions.length > 0) {
+            sessionStorage.setItem('adminPermissions', JSON.stringify(staffMember.role.permissions));
+            return staffMember.role.permissions;
+          }
         }
       }
-    } catch (e) {
-      console.warn('Could not fetch staff by id:', e);
-    }
-  }
 
-  // 5. Fetch permissions using roleId or getRoles
-  return await fetchAndStorePermissions(roleId, token, baseUrl);
+      // 5. Fetch permissions using roleId or getRoles/getActiveRoles
+      return await fetchAndStorePermissions(roleId, token, baseUrl);
+    } finally {
+      resolvingPermissionsPromise = null;
+    }
+  })();
+
+  return resolvingPermissionsPromise;
 }
 
 /**
@@ -595,4 +628,11 @@ export function clearPermissions() {
   sessionStorage.removeItem('adminPermissions');
   sessionStorage.removeItem('adminStage');
   sessionStorage.removeItem('adminInfo');
+  sessionStorage.removeItem('adminToken');
+  sessionStorage.removeItem('isLoggedIn');
+  localStorage.removeItem('adminPermissions');
+  localStorage.removeItem('adminStage');
+  localStorage.removeItem('adminInfo');
+  localStorage.removeItem('adminToken');
+  localStorage.removeItem('isLoggedIn');
 }

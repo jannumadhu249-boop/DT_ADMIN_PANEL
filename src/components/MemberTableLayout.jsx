@@ -521,7 +521,7 @@ const statusColor = (s = '') => {
   return '#333';
 };
 
-function MemberDetailFullPage({ member, onBack, commentsHistory, onAddComment, onSendEmailOtp, onVerifyEmailOtp }) {
+function MemberDetailFullPage({ member, yearId, onBack, commentsHistory, onAddComment, onSendEmailOtp, onVerifyEmailOtp }) {
   const [activeTab, setActiveTab] = useState('personal');
   const [tabRefreshKey, setTabRefreshKey] = useState(0);
   const [unmasked, setUnmasked] = useState({});
@@ -552,8 +552,25 @@ function MemberDetailFullPage({ member, onBack, commentsHistory, onAddComment, o
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadDocName, setUploadDocName] = useState('');
   const [uploadDocTypeId, setUploadDocTypeId] = useState('');
-  const [uploadYearId, setUploadYearId] = useState('');
+  const [selectedYearId, setSelectedYearId] = useState(() => yearId || member?.year_id || member?.raw?.year_id || '');
+  const [uploadYearId, setUploadYearId] = useState(() => yearId || member?.year_id || member?.raw?.year_id || '');
   const [recentFiveYears, setRecentFiveYears] = useState([]);
+
+  useEffect(() => {
+    const nextYearId = yearId || member?.year_id || member?.raw?.year_id || '';
+    if (nextYearId) {
+      setSelectedYearId(nextYearId);
+      setUploadYearId(nextYearId);
+    }
+  }, [yearId, member]);
+
+  useEffect(() => {
+    if (!selectedYearId && recentFiveYears.length > 0) {
+      const fallbackYear = recentFiveYears[0]._id || recentFiveYears[0].name || '';
+      setSelectedYearId(fallbackYear);
+      setUploadYearId(fallbackYear);
+    }
+  }, [recentFiveYears, selectedYearId]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
@@ -625,7 +642,7 @@ const handleAddPayment = async () => {
       setPaymentSuccess(data.message || 'Payment added successfully!');
       setPayAmount('');
       // Refresh payment history
-      fetchPaymentHistory();
+      fetchPaymentHistory(selectedYearId);
     } else {
       setPaymentError(data.message || 'Failed to add payment.');
     }
@@ -641,13 +658,15 @@ const handleAddPayment = async () => {
 const [paymentHistory, setPaymentHistory] = useState([]);
 const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
 
-const fetchPaymentHistory = async () => {
+const fetchPaymentHistory = async (targetYearId) => {
   const memberId = member._id || member.sNo;
   if (!memberId) return;
+  const yId = targetYearId !== undefined ? targetYearId : selectedYearId;
   setLoadingPaymentHistory(true);
   try {
     const token = getAuthToken();
-    const res = await fetch(`${URLS.GetPayList}${memberId}`, {
+    const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+    const res = await fetch(`${URLS.GetPayList}${memberId}${queryParam}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -696,12 +715,15 @@ useEffect(() => {
   }, []);
 
   // ---- Fetch admin‑uploaded documents ----
-  const fetchAdminUploadedDocs = async (memberId) => {
+  const fetchAdminUploadedDocs = async (targetMemberId, targetYearId) => {
+    const memberId = targetMemberId || member._id || member.sNo;
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : selectedYearId;
     setLoadingAdminDocs(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetUploadList}${memberId}`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetUploadList}${memberId}${queryParam}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -751,8 +773,9 @@ useEffect(() => {
       const docTypeIdToSend = DOC_TYPE_MAP[uploadDocTypeId] || uploadDocTypeId;
       formData.append('document_type', docTypeIdToSend);
       formData.append('document_name', uploadDocName.trim() || uploadFile.name);
-      if (uploadYearId) {
-        formData.append('year_id', uploadYearId);
+      const yearToUpload = uploadYearId || selectedYearId;
+      if (yearToUpload) {
+        formData.append('year_id', yearToUpload);
       }
 
       const endpoint = `${URLS.UploadDocuments}${userId}`;
@@ -769,12 +792,12 @@ useEffect(() => {
 
       if (res.ok && result.success) {
         setUploadSuccess(result.message || 'Document uploaded successfully.');
-        await fetchAdminUploadedDocs(userId);
-        await fetchMemberProfile(userId);
+        await fetchAdminUploadedDocs(userId, selectedYearId);
+        await fetchMemberProfile(userId, selectedYearId);
         setUploadFile(null);
         setUploadDocName('');
         setUploadDocTypeId('');
-        setUploadYearId('');
+        setUploadYearId(selectedYearId);
         if (fileInputRef.current) fileInputRef.current.value = '';
         setTimeout(() => setUploadSuccess(''), 4000);
       } else {
@@ -1070,13 +1093,15 @@ const handleDeleteDoc = async (docId) => {
   };
 
   // ---- Fetch member profile data ----
-  const fetchMemberProfile = async (targetMemberId) => {
+  const fetchMemberProfile = async (targetMemberId, targetYearId) => {
     const memberId = targetMemberId || member._id || member.sNo;
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : selectedYearId;
     setLoadingProfile(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetMemberView}${memberId}/profile`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetMemberView}${memberId}/profile${queryParam}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1108,19 +1133,7 @@ const handleDeleteDoc = async (docId) => {
     }
   };
 
-  useEffect(() => {
-    fetchMemberProfile();
-  }, [member]);
-
-  // ---- Fetch admin docs when member changes ----
-  useEffect(() => {
-    const memberId = member._id || member.sNo;
-    if (memberId) {
-      fetchAdminUploadedDocs(memberId);
-    }
-  }, [member]);
-
-  // ---- Per-tab refresh: reload the right data whenever activeTab changes ----
+  // ---- Per-tab refresh: reload the right data whenever activeTab, selectedYearId, or member changes ----
   useEffect(() => {
     const memberId = member._id || member.sNo;
     if (!memberId) return;
@@ -1133,13 +1146,13 @@ const handleDeleteDoc = async (docId) => {
       case 'address':
       case 'download':
       case 'interview':
-        fetchMemberProfile(memberId);
+        fetchMemberProfile(memberId, selectedYearId);
         break;
       case 'pay':
-        fetchPaymentHistory();
+        fetchPaymentHistory(selectedYearId);
         break;
       case 'upload':
-        fetchAdminUploadedDocs(memberId);
+        fetchAdminUploadedDocs(memberId, selectedYearId);
         fetchRecentFiveYears();
         // Clear stale alerts when switching to upload tab
         setUploadSuccess('');
@@ -1151,7 +1164,7 @@ const handleDeleteDoc = async (docId) => {
       default:
         break;
     }
-  }, [activeTab, tabRefreshKey]);
+  }, [activeTab, tabRefreshKey, selectedYearId, member]);
 
   const details = getMemberDetails(member);
   const history = commentsHistory?.[member.sNo || member._id] || [
@@ -1268,13 +1281,34 @@ const handleDeleteDoc = async (docId) => {
         </button>
 
         {/* Member Quick Info Bar */}
-        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '13px' }}>
-          <strong style={{ fontSize: '15px', color: '#0076a3' }}>
-            {profileData?.header ? `${profileData.header.first_name || ''} ${profileData.header.last_name || ''}`.trim() : member.name}
-          </strong>
-          &nbsp;|&nbsp; File No: <strong>{profileData?.header?.file_no || member.fileNo}</strong>
-          &nbsp;|&nbsp; {profileData?.header?.file_type || profileData?.header?.file_type || member.filingType}
-          &nbsp;|&nbsp; <span style={{ color: statusColor(profileData?.header?.filestatus || member.status), fontWeight: 600 }}>{profileData?.header?.filestatus || member.status}</span>
+        <div style={{ marginBottom: '12px', padding: '10px 14px', background: '#f8f9fa', borderRadius: '4px', border: '1px solid #e5e7eb', fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          <div>
+            <strong style={{ fontSize: '15px', color: '#0076a3' }}>
+              {profileData?.header ? `${profileData.header.first_name || ''} ${profileData.header.last_name || ''}`.trim() : member.name}
+            </strong>
+            &nbsp;|&nbsp; File No: <strong>{profileData?.header?.file_no || member.fileNo}</strong>
+            &nbsp;|&nbsp; {profileData?.header?.file_type || profileData?.header?.file_type || member.filingType}
+            &nbsp;|&nbsp; <span style={{ color: statusColor(profileData?.header?.filestatus || member.status), fontWeight: 600 }}>{profileData?.header?.filestatus || member.status}</span>
+          </div>
+          {recentFiveYears.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <label style={{ fontWeight: 600, color: '#475569', fontSize: '12px' }}>Tax Year:</label>
+              <select
+                value={selectedYearId}
+                onChange={(e) => {
+                  setSelectedYearId(e.target.value);
+                  setUploadYearId(e.target.value);
+                }}
+                style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 600, color: '#0f172a', background: '#fff' }}
+              >
+                {recentFiveYears.map(y => (
+                  <option key={y._id || y.name} value={y._id || y.name}>
+                    Tax Year {y.name || y.year_name || y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* 10-Tab Ribbon */}
@@ -3217,6 +3251,7 @@ useEffect(() => {
       <div className="content-card">
         <MemberDetailFullPage
           member={selectedMember}
+          yearId={activeYearId}
           onBack={() => { setSelectedMember(null); setActiveDetailTab('personal'); }}
           commentsHistory={commentsHistory}
           onAddComment={handleAddComment}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { URLS } from '../url';
+import Pagination from '../components/Pagination';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -322,59 +323,15 @@ export default function ClientStage() {
       </div>
 
       {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '16px', fontSize: '12px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => goToPage(1)}
-            disabled={pagination.currentPage === 1}
-            style={{
-              padding: '4px 10px',
-              border: '1px solid #cbd5e1',
-              background: '#fff',
-              cursor: pagination.currentPage === 1 ? 'not-allowed' : 'pointer',
-              borderRadius: '2px',
-              opacity: pagination.currentPage === 1 ? 0.5 : 1,
-            }}
-          >
-            First
-          </button>
-
-          {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => goToPage(p)}
-              style={{
-                padding: '4px 10px',
-                border: '1px solid #cbd5e1',
-                background: pagination.currentPage === p ? '#e2e8f0' : '#fff',
-                fontWeight: pagination.currentPage === p ? '700' : 'normal',
-                cursor: 'pointer',
-                borderRadius: '2px',
-              }}
-            >
-              {p}
-            </button>
-          ))}
-
-          <button
-            onClick={() => goToPage(pagination.totalPages)}
-            disabled={pagination.currentPage === pagination.totalPages}
-            style={{
-              padding: '4px 10px',
-              border: '1px solid #cbd5e1',
-              background: '#fff',
-              cursor: pagination.currentPage === pagination.totalPages ? 'not-allowed' : 'pointer',
-              borderRadius: '2px',
-              opacity: pagination.currentPage === pagination.totalPages ? 0.5 : 1,
-            }}
-          >
-            Last
-          </button>
-
-          <span style={{ marginLeft: '12px', color: '#64748b' }}>
-            {pagination.totalRecords} entries
-          </span>
-        </div>
+      {pagination.totalRecords > 0 && (
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalRecords={pagination.totalRecords}
+          limit={pagination.limit}
+          count={members.length}
+          onPageChange={goToPage}
+        />
       )}
     </div>
   );

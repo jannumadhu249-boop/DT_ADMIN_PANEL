@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import Pagination from '../components/Pagination';
 
 export default function PaymentsReport({ selectedYear }) {
+  const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -21,11 +23,13 @@ export default function PaymentsReport({ selectedYear }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    setCurrentPage(1);
     setSubmittedSearch({ term: searchTerm, from: dateFrom, to: dateTo, type: paymentType });
   };
 
   const numericYear = selectedYear ? selectedYear.replace('TY', '') : '2025';
 
+  const limit = 20;
   const filteredPayments = initialPayments.filter(payment => {
     const matchesYear = payment.year === numericYear;
     const matchesName = !submittedSearch.term || payment.name.toLowerCase().includes(submittedSearch.term.toLowerCase()) || payment.transactionId.includes(submittedSearch.term);
@@ -41,6 +45,9 @@ export default function PaymentsReport({ selectedYear }) {
 
     return matchesYear && matchesName && matchesType && matchesDate;
   });
+
+  const totalPages = Math.ceil(filteredPayments.length / limit) || 1;
+  const paginatedPayments = filteredPayments.slice((currentPage - 1) * limit, currentPage * limit);
 
   return (
     <div className="content-card">
@@ -121,10 +128,10 @@ export default function PaymentsReport({ selectedYear }) {
             </tr>
           </thead>
           <tbody>
-            {filteredPayments.length > 0 ? (
-              filteredPayments.map((payment, index) => (
+            {paginatedPayments.length > 0 ? (
+              paginatedPayments.map((payment, index) => (
                 <tr key={payment.sNo}>
-                  <td>{index + 1}</td>
+                  <td>{(currentPage - 1) * limit + index + 1}</td>
                   <td style={{ fontWeight: '500' }}>{payment.name}</td>
                   <td>{payment.transactionId}</td>
                   <td>{payment.type}</td>
@@ -164,14 +171,14 @@ export default function PaymentsReport({ selectedYear }) {
 
       {/* Pagination Footer */}
       {filteredPayments.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-          <div className="pagination-row">
-            <button className="page-link-btn active">1</button>
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Showing 1 to {filteredPayments.length} of {filteredPayments.length} entries
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={filteredPayments.length}
+          limit={limit}
+          count={paginatedPayments.length}
+          onPageChange={setCurrentPage}
+        />
       )}
     </div>
   );

@@ -170,12 +170,22 @@ export default function App() {
     permissions: getAdminPermissions() || [],
   }));
 
-  // Resolve staff permissions on mount if missing
+  // Resolve staff permissions on mount/refresh if missing
   useEffect(() => {
     if (!isLoggedIn) return;
     if (!isSuperAdmin()) {
+      if (userPermissions.permissions && userPermissions.permissions.length > 0) {
+        return;
+      }
       const stored = getAdminPermissions();
-      if (!stored || stored.length === 0) {
+      if (stored && stored.length > 0) {
+        setUserPermissions({
+          isSuperAdmin: false,
+          permissions: stored,
+        });
+        return;
+      }
+      if (sessionStorage.getItem('adminPermissions') === null) {
         const token = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken');
         if (token) {
           const payload = decodeJwt(token);
@@ -413,14 +423,14 @@ export default function App() {
   if (!isLoggedIn) {
     return (
       <Login
-        onLoginSuccess={() => {
+        onLoginSuccess={(perms) => {
           setIsLoggedIn(true);
           sessionStorage.setItem('isLoggedIn', 'true');
           const superAdmin = isSuperAdmin();
-          const perms = getAdminPermissions() || [];
+          const loadedPerms = Array.isArray(perms) && perms.length > 0 ? perms : (getAdminPermissions() || []);
           setUserPermissions({
             isSuperAdmin: superAdmin,
-            permissions: perms,
+            permissions: loadedPerms,
           });
           const firstTab = getFirstPermittedTab();
           if (ROUTE_MAP[firstTab]) {

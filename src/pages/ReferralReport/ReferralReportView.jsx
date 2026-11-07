@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Eye, Shield, X, CheckCircle, Clock, RefreshCw, Loader2, RotateCcw, Calendar } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
+import Pagination from '../../components/Pagination';
 
 const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
@@ -180,30 +181,14 @@ export default function ReferralsReportView({
 
       {/* Pagination */}
       {!loading && pagination.totalRecords > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-          <div className="pagination-row" style={{ display: 'flex', gap: '4px' }}>
-            {[...Array(pagination.totalPages || 1)].map((_, i) => (
-              <button
-                key={i}
-                className={`page-link-btn ${pagination.currentPage === i + 1 ? 'active' : ''}`}
-                style={{
-                  padding: '4px 10px',
-                  border: '1px solid #ccc',
-                  background: pagination.currentPage === i + 1 ? '#0076a3' : '#fff',
-                  color: pagination.currentPage === i + 1 ? '#fff' : '#333',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-                onClick={() => onPageChange(i + 1)}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to {Math.min(pagination.currentPage * pagination.limit, pagination.totalRecords)} of {pagination.totalRecords} entries
-          </div>
-        </div>
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalRecords={pagination.totalRecords}
+          limit={pagination.limit}
+          count={filteredReferrals.length}
+          onPageChange={onPageChange}
+        />
       )}
 
       {/* ========== OTP MODAL ========== */}

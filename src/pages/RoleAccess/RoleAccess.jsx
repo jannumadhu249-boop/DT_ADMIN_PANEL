@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Shield, X, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { URLS } from '../../url';
+import Pagination from '../../components/Pagination';
 import RoleAccessForm from './RoleAccessForm';
 import './RoleAccess.css';
 
@@ -72,6 +73,8 @@ export default function RoleAccess() {
   const [editRole, setEditRole] = useState(null);
   const [deleteRole, setDeleteRole] = useState(null);
   const [toast, setToast] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const limit = 20;
 
   /* Fetch */
   const fetchRoles = async () => {
@@ -178,9 +181,9 @@ export default function RoleAccess() {
                 </tr>
               </thead>
               <tbody>
-                {roles.map((role, idx) => (
+                {roles.slice((currentPage - 1) * limit, currentPage * limit).map((role, idx) => (
                   <tr key={role._id || idx}>
-                    <td>{idx + 1}</td>
+                    <td>{(currentPage - 1) * limit + idx + 1}</td>
                     <td><span className="ra-role-name">{role.name}</span></td>
                     <td>
                       <span className="ra-perm-badge">
@@ -216,6 +219,19 @@ export default function RoleAccess() {
             </table>
           )}
         </div>
+
+        {!loading && roles.length > 0 && (
+          <div style={{ padding: '0 16px 16px 16px' }}>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={Math.ceil(roles.length / limit) || 1}
+              totalRecords={roles.length}
+              limit={limit}
+              count={roles.slice((currentPage - 1) * limit, currentPage * limit).length}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       <DeleteModal isOpen={!!deleteRole} onClose={() => setDeleteRole(null)} onConfirm={handleDelete} name={deleteRole?.name || deleteRole?.roleName || ''} />

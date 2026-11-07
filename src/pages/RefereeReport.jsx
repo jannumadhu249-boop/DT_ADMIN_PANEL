@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Eye, EyeOff, Shield, X, CheckCircle, Clock, RefreshCw, Loader2, Edit3 } from 'lucide-react';
 import { URLS } from '../url';
 import { formatDate } from '../utils/dateUtils';
+import Pagination from '../components/Pagination';
 
 // ---------- Helper: get auth token ----------
 const getAuthToken = () => {
@@ -607,38 +608,14 @@ export default function RefereeReport() {
 
       {/* Pagination */}
       {!loading && pagination.totalRecords > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '16px', fontSize: '12px' }}>
-          {[...Array(pagination.totalPages)].map((_, i) => (
-            <button
-              key={i}
-              onClick={() => handlePageChange(i + 1)}
-              style={{
-                padding: '4px 8px',
-                border: '1px solid #cbd5e1',
-                background: pagination.currentPage === i + 1 ? '#e2e8f0' : '#fff',
-                fontWeight: pagination.currentPage === i + 1 ? '700' : 'normal',
-                cursor: 'pointer',
-                borderRadius: '2px'
-              }}
-            >
-              {i + 1}
-            </button>
-          ))}
-          <button
-            onClick={() => handlePageChange(pagination.currentPage + 1)}
-            disabled={pagination.currentPage === pagination.totalPages}
-            style={{ padding: '4px 8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', borderRadius: '2px' }}
-          >
-            &gt;
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.totalPages)}
-            disabled={pagination.currentPage === pagination.totalPages}
-            style={{ padding: '4px 8px', border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', borderRadius: '2px' }}
-          >
-            Last &gt;
-          </button>
-        </div>
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalRecords={pagination.totalRecords}
+          limit={pagination.limit}
+          count={referees.length}
+          onPageChange={handlePageChange}
+        />
       )}
 
       {/* ========== OTP MODAL ========== */}
