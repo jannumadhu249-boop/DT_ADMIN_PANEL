@@ -125,6 +125,37 @@ const STATUS_CODE_MAP = {
   'CANC': 'CANC'
 };
 
+const CODE_TO_DISPLAY = {
+  'RGO':     'Registered Users',
+  'BIP':     'Information Pending',
+  'SP':      'Scheduling Pending',
+  'IP':      'Interview Pending', 
+  'DP':      'Documents Pending',
+  'PP_I':    'Preparation - 1',
+  'PP_II':   'Preparation - 2',
+  'TR_S_I':  'Review & Summary 1',
+  'TR_S_II': 'Review & Summary 2',
+  'ITIN':    'ITIN Files',
+  'RE_ES':   'Revised Estimate',
+  'PP_EF':   'Payment Pending - Efiling',
+  'PP_PF':   'Payment Pending - Paper filing',
+  'FPR':     'Fee Payment Received - I',
+  'FPR_II':  'Fee Payment Received - II',
+  'FPR_2':   'Fee Payment Received - II',
+  'CR_EF':   'Client Review - Efiling',
+  'CR_PF':   'Client Review - Paper Filing',
+  'EFP_I':   'Efiling Pending - 1',
+  'EFP_II':  'Efiling Pending - 2',
+  'EF_AA_I': 'E - Filed & Awaiting Acceptance - 1',
+  'EF_AA_II':'E - Filed & Awaiting Acceptance - 2',
+  'EF_REJ':  'E - Filed & Rejected',
+  'C_R':     'City Return',
+  'EFA_FC':  'E-Filing Accepted & Filing Complete',
+  'PF_P':    'Paper Filing Pending',
+  'PF_D':    'Paper Filing Done',
+  'CANC':    'Cancelled',
+};
+
 // -------------------- OTP Modal (fixed: immediate open with success/error props) --------------------
 function OtpModal({ isOpen, onClose, onVerify, onResend, fieldLabel, initialError, initialSuccess }) {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -597,11 +628,13 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
 
   // ---- File Info state ----
   const [statusHistory, setStatusHistory] = useState([]);
+  const [fileInfoPage, setFileInfoPage] = useState(1);
+  const fileInfoLimit = 10;
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [fileTypeInput, setFileTypeInput] = useState('E-Filing');
   const [statusInput, setStatusInput] = useState('E-Filing Accepted & Filing Complete');
   const [commentsInput, setCommentsInput] = useState('');
-  const [commentPopup, setCommentPopup] = useState(null); // For viewing full comments
+  const [commentPopup, setCommentPopup] = useState(null);
   const [isSubmittingFileInfo, setIsSubmittingFileInfo] = useState(false);
   const [fileInfoSuccessMsg, setFileInfoSuccessMsg] = useState('');
   const [fileInfoErrorMsg, setFileInfoErrorMsg] = useState('');
@@ -674,16 +707,23 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     setApiError('');
     try {
       const token = getAuthToken();
-      const payload = { page, limit, searchBy: searchBy || '', search: search || '', year_id: yearId || currentYearId };
-      const res = await fetch(URLS.GetClientSearch, {
+      const payload = {
+        page,
+        limit,
+        searchBy: searchBy || '',
+        search: search || '',
+        year_id: yearId || currentYearId,
+        filestatus: 'all'
+      };
+      const res = await fetch(URLS.GetAllRegistred, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (data.success) {
-        setClients(data.data);
-        setPagination(data.pagination);
+        setClients(data.data || []);
+        if (data.pagination) setPagination(data.pagination);
       } else {
         setApiError(data.message || 'Failed to fetch clients.');
       }
@@ -779,7 +819,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         setPaymentError(data.message || 'Failed to add payment.');
       }
     } catch (err) {
-      console.error('Add payment error:', err);
+      // console.error('Add payment error:', err);
       setPaymentError('Network error. Please try again.');
     } finally {
       setPaymentLoading(false);
@@ -792,24 +832,37 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
   };
 
   // ---- File Info API functions ----
-  const fetchFileInfoHistory = async (memberId) => {
+  const fetchFileInfoHistory = async (memberId, targetYearId) => {
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId || selectedMember?.year_id || '');
+    if (!yId) {
+      // console.warn('⚠️ Waiting for valid year_id before fetching file info history');
+      return;
+    }
     setLoadingFileInfo(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetFileInfo}${memberId}`, {
+      const queryParam = `?year_id=${encodeURIComponent(yId)}`;
+      const res = await fetch(`${URLS.GetFileInfo}${memberId}${queryParam}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year_id: yId })
       });
       const data = await res.json();
-      if (data.success && Array.isArray(data.history)) {
-        const sorted = data.history.sort((a, b) => new Date(b.createdAt || b.dateTime || 0) - new Date(a.createdAt || a.dateTime || 0));
+      if (data.success) {
+        const rawHistory = Array.isArray(data.history)
+          ? data.history
+          : (Array.isArray(data.data)
+              ? data.data
+              : (Array.isArray(data.data?.history) ? data.data.history : []));
+
+        const sorted = rawHistory.sort((a, b) => new Date(b.createdAt || b.created_at || b.dateTime || b.date || 0) - new Date(a.createdAt || a.created_at || a.dateTime || a.date || 0));
         setStatusHistory(sorted);
       } else {
         setStatusHistory([]);
       }
     } catch (err) {
-      console.warn('Fetch file info error:', err);
+      // console.warn('Fetch file info error:', err);
       setStatusHistory([]);
     } finally {
       setLoadingFileInfo(false);
@@ -823,10 +876,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       setFileInfoErrorMsg('Member ID missing.');
       return;
     }
-    // if (!commentsInput.trim()) {
-    //   setFileInfoErrorMsg('Please enter comments.');
-    //   return;
-    // }
+
     setFileInfoErrorMsg('');
     setFileInfoSuccessMsg('');
     setIsSubmittingFileInfo(true);
@@ -834,30 +884,51 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     try {
       const token = getAuthToken();
       const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
+      const currentYear = detailYearId || currentYearId || selectedMember?.year_id || '';
+      const submittedComment = commentsInput.trim();
       
       // Build payload based on what API expects
       const payload = {
         file_type: fileTypeInput,
         status: statusCode,
-        comments: commentsInput.trim() || ''
+        comments: submittedComment,
+        ...(currentYear ? { year_id: currentYear } : {})
       };
 
-      console.log('📤 Submitting File Info:', { memberId, statusName: statusInput, statusCode, payload });
+      // console.log('📤 Submitting File Info:', { memberId, statusName: statusInput, statusCode, yearId: currentYear, payload });
 
-      const res = await fetch(`${URLS.CreateFileInfo}${memberId}`, {
+      const queryParam = currentYear ? `?year_id=${encodeURIComponent(currentYear)}` : '';
+      const res = await fetch(`${URLS.CreateFileInfo}${memberId}${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       
-      console.log('📥 API Response Status:', res.status);
+      // console.log('📥 API Response Status:', res.status);
       const data = await res.json();
-      console.log('📥 API Response Data:', data);
+      // console.log('📥 API Response Data:', data);
       
       if (res.ok && data.success) {
         setFileInfoSuccessMsg(data.message || 'Status updated successfully.');
         setCommentsInput('');
-        await fetchFileInfoHistory(memberId);
+        
+        // Optimistic update
+        const newEntry = {
+          ...(data.data || {}),
+          _id: data.data?._id || data.data?.id || `temp-${Date.now()}`,
+          file_type: fileTypeInput,
+          status: statusInput,
+          status_name: statusInput,
+          comments: submittedComment,
+          comment: submittedComment,
+          createdBy: data.data?.createdBy || data.data?.created_by || 'Admin',
+          createdAt: data.data?.createdAt || data.data?.created_at || new Date().toISOString()
+        };
+        setStatusHistory(prev => [newEntry, ...prev.filter(item => item._id !== newEntry._id)]);
+
+        if (currentYear) {
+          await fetchFileInfoHistory(memberId, currentYear);
+        }
         // Update quick status bar
         if (selectedMember) {
           setSelectedMember(prev => ({ ...prev, filestatus_name: statusInput, current_stage: statusInput }));
@@ -865,11 +936,11 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         setTimeout(() => setFileInfoSuccessMsg(''), 3000);
       } else {
         const errorMsg = data.message || data.error || 'Failed to update status.';
-        console.error('❌ API Error:', errorMsg, data);
+        // console.error('❌ API Error:', errorMsg, data);
         setFileInfoErrorMsg(errorMsg);
       }
     } catch (err) {
-      console.error('❌ Create file info error:', err);
+      // console.error('❌ Create file info error:', err);
       setFileInfoErrorMsg('Network error. Please try again.');
     } finally {
       setIsSubmittingFileInfo(false);
@@ -898,7 +969,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
           setAdminUploadedDocs([]);
         }
       } catch (err) {
-        console.warn('⚠️ Fetch admin documents error:', err);
+        // console.warn('⚠️ Fetch admin documents error:', err);
         setAdminUploadedDocs([]);
       } finally {
         setLoadingAdminDocs(false);
@@ -957,7 +1028,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         setUploadError(errorMsg);
       }
     } catch (err) {
-      console.error('❌ Upload document error:', err);
+      // console.error('❌ Upload document error:', err);
       setUploadError(err.message || 'Network error occurred during upload.');
     } finally {
       setIsUploading(false);
@@ -1001,7 +1072,7 @@ const handleDeleteDoc = async (docId) => {
       setUploadError(result.message || 'Failed to delete document.');
     }
   } catch (err) {
-    console.error('Delete error:', err);
+    // console.error('Delete error:', err);
     setUploadError(err.message || 'Network error occurred during deletion.');
   } finally {
     setDeleteLoading(false);
@@ -1071,7 +1142,7 @@ const handleDeleteDoc = async (docId) => {
       }));
 
     } catch (err) {
-      console.error('Bank Details API error:', err);
+      // console.error('Bank Details API error:', err);
       throw err;
     }
   };
@@ -1106,10 +1177,10 @@ const handleDeleteDoc = async (docId) => {
         };
         setProfileData(processedData);
       } else {
-        console.warn('Profile API returned success:false', result.message);
+        // console.warn('Profile API returned success:false', result.message);
       }
     } catch (err) {
-      console.error('Member profile fetch error:', err);
+      // console.error('Member profile fetch error:', err);
     } finally {
       setLoadingProfile(false);
     }
@@ -1128,7 +1199,7 @@ const handleDeleteDoc = async (docId) => {
     } else if (activeDetailTab === 'upload') {
       fetchAdminUploadedDocs(memberId, activeYear);
     } else if (activeDetailTab === 'fileInfo') {
-      fetchFileInfoHistory(memberId);
+      fetchFileInfoHistory(memberId, activeYear);
     }
   }, [selectedMember?._id, activeDetailTab, detailYearId]);
 
@@ -1141,7 +1212,7 @@ const handleDeleteDoc = async (docId) => {
     }
     if (requiresOtp) {
       if (!memberId) {
-        console.warn('No memberId provided for OTP');
+        // console.warn('No memberId provided for OTP');
         return;
       }
       // Open modal immediately
@@ -1996,52 +2067,57 @@ const handleDeleteDoc = async (docId) => {
                       <thead><tr><th>S.No</th><th>Filing Type</th><th>Status</th><th>Comments</th><th>Created By</th><th>Date & Time</th></tr></thead>
                       <tbody>
                         {statusHistory.length > 0 ? (
-                          statusHistory.map((c, i) => {
-                            const MAX_COMMENT_LENGTH = 100;
-                            const comment = c.comments || '—';
-                            const isTruncated = comment.length > MAX_COMMENT_LENGTH;
-                            
-                            return (
-                              <tr key={c._id || i}>
-                                <td>{i + 1}</td>
-                                <td style={{ fontWeight: '500' }}>{c.file_type || selectedMember.file_type || '—'}</td>
-                                <td>
-                                  <span style={{ background: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#ecfdf5' : '#f0f9ff', color: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
-                                    {c.status_name || c.status || '—'}
-                                  </span>
-                                </td>
-                                <td style={{ color: '#334155', maxWidth: '350px' }}>
-                                  {isTruncated ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-                                        {comment.substring(0, MAX_COMMENT_LENGTH)}...
-                                      </span>
-                                      <button
-                                        onClick={() => setCommentPopup({ text: comment })}
-                                        style={{
-                                          background: '#e0f2fe',
-                                          border: '1px solid #bae6fd',
-                                          color: '#0369a1',
-                                          padding: '3px 8px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          cursor: 'pointer',
-                                          whiteSpace: 'nowrap'
-                                        }}
-                                      >
-                                        View
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span>{comment}</span>
-                                  )}
-                                </td>
-                                <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || 'Admin'}</td>
-                                <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt ? formatDate(c.createdAt) : '—'}</td>
-                              </tr>
-                            );
-                          })
+                          (() => {
+                            const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
+                            const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
+                            return paginatedStatusHistory.map((c, i) => {
+                              const MAX_COMMENT_LENGTH = 100;
+                              const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
+                              const isTruncated = comment.length > MAX_COMMENT_LENGTH;
+                              const displayStatus = CODE_TO_DISPLAY?.[c.status] || c.status_name || c.status || '—';
+                              
+                              return (
+                                <tr key={c._id || i}>
+                                  <td>{fileInfoStartIndex + i + 1}</td>
+                                  <td style={{ fontWeight: '500' }}>{c.file_type || selectedMember.file_type || '—'}</td>
+                                  <td>
+                                    <span style={{ background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
+                                      {displayStatus}
+                                    </span>
+                                  </td>
+                                  <td style={{ color: '#334155', maxWidth: '350px' }}>
+                                    {isTruncated ? (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
+                                          {comment.substring(0, MAX_COMMENT_LENGTH)}...
+                                        </span>
+                                        <button
+                                          onClick={() => setCommentPopup({ text: comment })}
+                                          style={{
+                                            background: '#e0f2fe',
+                                            border: '1px solid #bae6fd',
+                                            color: '#0369a1',
+                                            padding: '3px 8px',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            whiteSpace: 'nowrap'
+                                          }}
+                                        >
+                                          View
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span>{comment}</span>
+                                    )}
+                                  </td>
+                                  <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
+                                  <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>
+                                </tr>
+                              );
+                            });
+                          })()
                         ) : (
                           <tr>
                             <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
@@ -2056,6 +2132,19 @@ const handleDeleteDoc = async (docId) => {
                       </tbody>
                     </table>
                   </div>
+
+                  {statusHistory.length > 0 && (
+                    <div style={{ marginTop: '16px' }}>
+                      <Pagination
+                        currentPage={fileInfoPage}
+                        totalPages={Math.ceil(statusHistory.length / fileInfoLimit) || 1}
+                        totalRecords={statusHistory.length}
+                        limit={fileInfoLimit}
+                        count={Math.min(statusHistory.length - (fileInfoPage - 1) * fileInfoLimit, fileInfoLimit)}
+                        onPageChange={(p) => setFileInfoPage(p)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             )}

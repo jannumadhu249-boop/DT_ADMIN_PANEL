@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { URLS } from '../../url';
 import { formatDate } from '../../utils/dateUtils';
+import Pagination from '../../components/Pagination';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -628,12 +629,22 @@ function BankModal({ isOpen, onClose, onSave, bankData, memberName }) {
 export default function JustUploadedDocsView({
   member,
   selectedYear,
+  yearId,
   onBack,
   onStatusUpdated
 }) {
   const [activeDetailTab, setActiveDetailTab] = useState('personal');
   const [profileData, setProfileData] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [activeYearId, setActiveYearId] = useState(() => yearId || member?.year_id || member?.uploaded_documents?.[0]?.year_id || '');
+
+  useEffect(() => {
+    const nextY = yearId || member?.year_id || member?.uploaded_documents?.[0]?.year_id || '';
+    if (nextY) {
+      setActiveYearId(nextY);
+      setUploadYearId(nextY);
+    }
+  }, [yearId, member]);
 
   // OTP state
   const [unmaskedFields, setUnmaskedFields] = useState({});
@@ -648,6 +659,8 @@ export default function JustUploadedDocsView({
 
   // File Info state
   const [statusHistory, setStatusHistory] = useState([]);
+  const [fileInfoPage, setFileInfoPage] = useState(1);
+  const fileInfoLimit = 10;
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [fileTypeInput, setFileTypeInput] = useState(member?.filing_type || member?.file_type || 'E-Filing');
   const [statusInput, setStatusInput] = useState(
@@ -663,12 +676,23 @@ export default function JustUploadedDocsView({
   const [uploadFile, setUploadFile] = useState(null);
   const [uploadDocName, setUploadDocName] = useState('');
   const [uploadDocTypeId, setUploadDocTypeId] = useState('');
-  const [uploadYearId, setUploadYearId] = useState('');
+  const [uploadYearId, setUploadYearId] = useState(() => yearId || member?.year_id || member?.uploaded_documents?.[0]?.year_id || '');
   const [recentFiveYears, setRecentFiveYears] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!activeYearId && recentFiveYears.length > 0) {
+      const defaultY = recentFiveYears.find(y => y.current_year) || recentFiveYears[0];
+      const defaultId = defaultY?._id || defaultY?.name || '';
+      if (defaultId) {
+        setActiveYearId(defaultId);
+        setUploadYearId(defaultId);
+      }
+    }
+  }, [recentFiveYears, activeYearId]);
 
   // Admin uploaded documents
   const [adminUploadedDocs, setAdminUploadedDocs] = useState([]);
@@ -741,12 +765,14 @@ export default function JustUploadedDocsView({
   }, [member]);
 
   // ---- Fetch Profile ----
-  const fetchMemberProfile = async (mId) => {
+  const fetchMemberProfile = async (mId, targetYearId) => {
     if (!mId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (activeYearId || uploadYearId || member?.year_id || '');
     setLoadingProfile(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetMemberView}${mId}/profile`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetMemberView}${mId}/profile${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
@@ -811,6 +837,14 @@ export default function JustUploadedDocsView({
       const data = await res.json();
       if (data.success && Array.isArray(data.data)) {
         setRecentFiveYears(data.data);
+        if (!activeYearId && data.data.length > 0) {
+          const defaultY = data.data.find(y => y.current_year) || data.data[0];
+          const defaultId = defaultY?._id || defaultY?.name || '';
+          if (defaultId) {
+            setActiveYearId(defaultId);
+            setUploadYearId(defaultId);
+          }
+        }
       }
     } catch (err) {
       console.warn('Error loading recent 5 years:', err);
@@ -818,12 +852,14 @@ export default function JustUploadedDocsView({
   };
 
   // ---- Fetch Admin Uploaded Docs ----
-  const fetchAdminUploadedDocs = async (mId) => {
+  const fetchAdminUploadedDocs = async (mId, targetYearId) => {
     if (!mId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (activeYearId || uploadYearId || member?.year_id || '');
     setLoadingAdminDocs(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetUploadList}${mId}`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetUploadList}${mId}${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
@@ -842,12 +878,14 @@ export default function JustUploadedDocsView({
   };
 
   // ---- Fetch Payment History ----
-  const fetchPaymentHistory = async (mId) => {
+  const fetchPaymentHistory = async (mId, targetYearId) => {
     if (!mId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (activeYearId || uploadYearId || member?.year_id || '');
     setLoadingPaymentHistory(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetPayList}${mId}`, {
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetPayList}${mId}${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
@@ -861,18 +899,31 @@ export default function JustUploadedDocsView({
   };
 
   // ---- Fetch File Info History ----
-  const fetchFileInfoHistory = async (mId) => {
+  const fetchFileInfoHistory = async (mId, targetYearId) => {
     if (!mId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (activeYearId || uploadYearId || member?.year_id || '');
+    if (!yId) {
+      console.warn('⚠️ Waiting for valid year_id before fetching file info history');
+      return;
+    }
     setLoadingFileInfo(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetFileInfo}${mId}`, {
+      const queryParam = `?year_id=${encodeURIComponent(yId)}`;
+      const res = await fetch(`${URLS.GetFileInfo}${mId}${queryParam}`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ year_id: yId })
       });
       const data = await res.json();
-      if (data.success && Array.isArray(data.history)) {
-        const sorted = data.history.sort((a, b) => new Date(b.createdAt || b.dateTime || 0) - new Date(a.createdAt || a.dateTime || 0));
+      if (data.success) {
+        const rawHistory = Array.isArray(data.history)
+          ? data.history
+          : (Array.isArray(data.data)
+              ? data.data
+              : (Array.isArray(data.data?.history) ? data.data.history : []));
+
+        const sorted = rawHistory.sort((a, b) => new Date(b.createdAt || b.created_at || b.dateTime || b.date || 0) - new Date(a.createdAt || a.created_at || a.dateTime || a.date || 0));
         setStatusHistory(sorted);
       } else {
         setStatusHistory([]);
@@ -1012,9 +1063,18 @@ export default function JustUploadedDocsView({
     try {
       const token = getAuthToken();
       const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
-      const payload = { file_type: fileTypeInput, status: statusCode, comments: commentsInput.trim() || '' };
+      const currentYear = activeYearId || uploadYearId || yearId || member?.year_id || member?.uploaded_documents?.[0]?.year_id || '';
+      const submittedComment = commentsInput.trim();
+      
+      const payload = {
+        file_type: fileTypeInput,
+        status: statusCode,
+        comments: submittedComment,
+        ...(currentYear ? { year_id: currentYear } : {})
+      };
 
-      const res = await fetch(`${URLS.CreateFileInfo}${memberId}`, {
+      const queryParam = currentYear ? `?year_id=${encodeURIComponent(currentYear)}` : '';
+      const res = await fetch(`${URLS.CreateFileInfo}${memberId}${queryParam}`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1023,7 +1083,24 @@ export default function JustUploadedDocsView({
       if (res.ok && data.success) {
         setFileInfoSuccessMsg(data.message || 'Status updated successfully.');
         setCommentsInput('');
-        await fetchFileInfoHistory(memberId);
+
+        // Optimistic update
+        const newEntry = {
+          ...(data.data || {}),
+          _id: data.data?._id || data.data?.id || `temp-${Date.now()}`,
+          file_type: fileTypeInput,
+          status: statusInput,
+          status_name: statusInput,
+          comments: submittedComment,
+          comment: submittedComment,
+          createdBy: data.data?.createdBy || data.data?.created_by || 'Admin',
+          createdAt: data.data?.createdAt || data.data?.created_at || new Date().toISOString()
+        };
+        setStatusHistory(prev => [newEntry, ...prev.filter(item => item._id !== newEntry._id)]);
+
+        if (currentYear) {
+          await fetchFileInfoHistory(memberId, currentYear);
+        }
 
         // Update local state and notify parent
         const resolvedName = CODE_TO_STATUS_NAME[statusCode] || statusInput;
@@ -1183,16 +1260,16 @@ export default function JustUploadedDocsView({
   // ---- Effects ----
   useEffect(() => {
     if (memberId) {
-      fetchMemberProfile(memberId);
+      fetchMemberProfile(memberId, activeYearId);
       fetchRecentFiveYears();
     }
-  }, [memberId]);
+  }, [memberId, activeYearId]);
 
   useEffect(() => {
-    if (memberId && activeDetailTab === 'upload') fetchAdminUploadedDocs(memberId);
-    if (memberId && activeDetailTab === 'pay') fetchPaymentHistory(memberId);
-    if (memberId && activeDetailTab === 'fileInfo') fetchFileInfoHistory(memberId);
-  }, [memberId, activeDetailTab]);
+    if (memberId && activeDetailTab === 'upload') fetchAdminUploadedDocs(memberId, activeYearId);
+    if (memberId && activeDetailTab === 'pay') fetchPaymentHistory(memberId, activeYearId);
+    if (memberId && activeDetailTab === 'fileInfo') fetchFileInfoHistory(memberId, activeYearId);
+  }, [memberId, activeDetailTab, activeYearId]);
 
   useEffect(() => {
     setFileInfoSuccessMsg('');
@@ -1943,7 +2020,7 @@ export default function JustUploadedDocsView({
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                 <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '14px', color: '#0f172a' }}>Status History & Activity Log ({statusHistory.length})</h4>
-                <button onClick={() => memberId && fetchFileInfoHistory(memberId)} disabled={loadingFileInfo} style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', color: '#475569', cursor: loadingFileInfo ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: loadingFileInfo ? 0.5 : 1 }}>
+                <button onClick={() => memberId && fetchFileInfoHistory(memberId, activeYearId)} disabled={loadingFileInfo} style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', color: '#475569', cursor: loadingFileInfo ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: loadingFileInfo ? 0.5 : 1 }}>
                   <RefreshCw size={14} style={{ animation: loadingFileInfo ? 'spin 1s linear infinite' : 'none' }} /> Refresh
                 </button>
               </div>
@@ -1952,52 +2029,57 @@ export default function JustUploadedDocsView({
                   <thead><tr><th>S.No</th><th>Filing Type</th><th>Status</th><th>Comments</th><th>Created By</th><th>Date & Time</th></tr></thead>
                   <tbody>
                     {statusHistory.length > 0 ? (
-                      statusHistory.map((c, i) => {
-                        const MAX_COMMENT_LENGTH = 100;
-                        const comment = c.comments || '—';
-                        const isTruncated = comment.length > MAX_COMMENT_LENGTH;
-                        
-                        return (
-                          <tr key={c._id || i}>
-                            <td>{i + 1}</td>
-                            <td style={{ fontWeight: '500' }}>{c.file_type || member?.filing_type || member?.file_type || '—'}</td>
-                            <td>
-                              <span style={{ background: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#ecfdf5' : '#f0f9ff', color: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
-                                {c.status_name || CODE_TO_STATUS_NAME[c.status] || c.status || '—'}
-                              </span>
-                            </td>
-                            <td style={{ color: '#334155', maxWidth: '350px' }}>
-                              {isTruncated ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-                                    {comment.substring(0, MAX_COMMENT_LENGTH)}...
-                                  </span>
-                                  <button
-                                    onClick={() => setCommentPopup({ text: comment })}
-                                    style={{
-                                      background: '#e0f2fe',
-                                      border: '1px solid #bae6fd',
-                                      color: '#0369a1',
-                                      padding: '3px 8px',
-                                      borderRadius: '4px',
-                                      fontSize: '11px',
-                                      fontWeight: '600',
-                                      cursor: 'pointer',
-                                      whiteSpace: 'nowrap'
-                                    }}
-                                  >
-                                    View
-                                  </button>
-                                </div>
-                              ) : (
-                                <span>{comment}</span>
-                              )}
-                            </td>
-                            <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || 'Admin'}</td>
-                            <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt ? formatDate(c.createdAt) : '—'}</td>
-                          </tr>
-                        );
-                      })
+                      (() => {
+                        const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
+                        const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
+                        return paginatedStatusHistory.map((c, i) => {
+                          const MAX_COMMENT_LENGTH = 100;
+                          const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
+                          const isTruncated = comment.length > MAX_COMMENT_LENGTH;
+                          const displayStatus = c.status_name || CODE_TO_STATUS_NAME[c.status] || c.status || '—';
+                          
+                          return (
+                            <tr key={c._id || i}>
+                              <td>{fileInfoStartIndex + i + 1}</td>
+                              <td style={{ fontWeight: '500' }}>{c.file_type || member?.filing_type || member?.file_type || '—'}</td>
+                              <td>
+                                <span style={{ background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
+                                  {displayStatus}
+                                </span>
+                              </td>
+                              <td style={{ color: '#334155', maxWidth: '350px' }}>
+                                {isTruncated ? (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
+                                      {comment.substring(0, MAX_COMMENT_LENGTH)}...
+                                    </span>
+                                    <button
+                                      onClick={() => setCommentPopup({ text: comment })}
+                                      style={{
+                                        background: '#e0f2fe',
+                                        border: '1px solid #bae6fd',
+                                        color: '#0369a1',
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        fontSize: '11px',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      View
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span>{comment}</span>
+                                )}
+                              </td>
+                              <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
+                              <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>
+                            </tr>
+                          );
+                        });
+                      })()
                     ) : (
                       <tr>
                         <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
@@ -2012,6 +2094,19 @@ export default function JustUploadedDocsView({
                   </tbody>
                 </table>
               </div>
+
+              {statusHistory.length > 0 && (
+                <div style={{ marginTop: '16px' }}>
+                  <Pagination
+                    currentPage={fileInfoPage}
+                    totalPages={Math.ceil(statusHistory.length / fileInfoLimit) || 1}
+                    totalRecords={statusHistory.length}
+                    limit={fileInfoLimit}
+                    count={Math.min(statusHistory.length - (fileInfoPage - 1) * fileInfoLimit, fileInfoLimit)}
+                    onPageChange={(p) => setFileInfoPage(p)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}

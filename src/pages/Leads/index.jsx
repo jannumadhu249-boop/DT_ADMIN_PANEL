@@ -7,6 +7,7 @@ import EditLeadModal from './EditLeadModal';
 import FilterModal from './FilterModal';
 import LeadDetailView from './LeadDetailView';
 import TodayLeadsModal from './TodayLeadsModal';
+import Pagination from '../../components/Pagination';
 
 /* ─── Token helper ─── */
 const getAuthToken = () => {
@@ -37,10 +38,12 @@ const getIsoDateString = (date) => {
   return `${y}-${m}-${day}`;
 };
 
-const isDateToday = (dateStr) => {
+const isFollowupToday = (dateStr) => {
   if (!dateStr) return false;
-  const todayStr = getIsoDateString(new Date());
-  if (typeof dateStr === 'string' && dateStr.startsWith(todayStr)) return true;
+  const now = new Date();
+  const todayStr = getIsoDateString(now);
+  const raw = typeof dateStr === 'string' ? dateStr.slice(0, 10) : '';
+  if (raw === todayStr) return true;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return false;
   return getIsoDateString(d) === todayStr;
@@ -155,11 +158,10 @@ export default function Leads() {
       const json = await res.json();
       if (res.ok && Array.isArray(json.data)) {
         const matched = json.data.filter(l =>
-          isDateToday(l.followup_date || l.followUpDate) ||
-          isDateToday(l.createdAt || l.date)
+          isFollowupToday(l.followup_date || l.followUpDate)
         );
         setTodayLeads(matched);
-        // Automatically open popup if leads exist on today's date
+        // Automatically open popup if leads have follow-up scheduled for today
         if (matched.length > 0) {
           setShowTodayModal(true);
         }
@@ -223,30 +225,25 @@ export default function Leads() {
     const todayStr = getIsoDateString(new Date());
     setDateFilter({ from: todayStr, to: todayStr });
     setCurrentPage(1);
+    setShowTodayModal(false);
   };
 
   /* ── Pagination ── */
   const totalPages = Math.ceil(totalRecords / perPage) || 1;
 
-  const pageNumbers = () => {
-    const pages = [];
-    const delta = 2;
-    const range = [];
-    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
-      range.push(i);
-    }
-    if (totalPages <= 1) return [1];
-    pages.push(1);
-    if (range[0] > 2) pages.push('...');
-    range.forEach(p => pages.push(p));
-    if (range[range.length - 1] < totalPages - 1) pages.push('...');
-    if (totalPages > 1) pages.push(totalPages);
-    return pages;
-  };
-
   /* ── Show detail view ── */
   if (viewLead) {
-    return <LeadDetailView lead={viewLead} onBack={() => setViewLead(null)} />;
+    return (
+      <LeadDetailView
+        lead={viewLead}
+        onBack={() => setViewLead(null)}
+        onLeadUpdated={(updatedLead) => {
+          setLeads(prev => prev.map(l => ((l._id || l.id) === (updatedLead._id || updatedLead.id) ? { ...l, ...updatedLead } : l)));
+          setViewLead(prev => ({ ...prev, ...updatedLead }));
+          checkTodayLeads();
+        }}
+      />
+    );
   }
 
   return (
@@ -273,13 +270,18 @@ export default function Leads() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {(dateFilter.from || dateFilter.to) && (
-            <button
-              className="leads-btn-clear-filter"
-              onClick={() => { setDateFilter({ from: '', to: '' }); setCurrentPage(1); }}
-              title="Clear date filter"
-            >
-              Clear Filter
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '12px', background: '#e0f2fe', color: '#0369a1', padding: '4px 8px', borderRadius: '4px', fontWeight: 500 }}>
+                Date: {dateFilter.from === dateFilter.to ? dateFilter.from : `${dateFilter.from || 'Start'} to ${dateFilter.to || 'End'}`}
+              </span>
+              <button
+                className="leads-btn-clear-filter"
+                onClick={() => { setDateFilter({ from: '', to: '' }); setCurrentPage(1); }}
+                title="Clear date filter"
+              >
+                Clear Filter
+              </button>
+            </div>
           )}
           <button className="leads-btn-filter" onClick={() => setShowFilter(true)}>
             <Filter size={15} style={{ marginRight: 4 }} /> Filter
@@ -415,38 +417,14 @@ export default function Leads() {
 
       {/* Footer: entries info + pagination */}
       {!loading && leads.length > 0 && (
-        <div className="leads-footer-row">
-          <span className="leads-entries-info">
-            Showing {(currentPage - 1) * perPage + 1} to{' '}
-            {Math.min(currentPage * perPage, totalRecords)} of {totalRecords} entries
-          </span>
-
-          <div className="pagination-row">
-            <button className="page-link-btn" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>«</button>
-            <button className="page-link-btn" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>
-              <ChevronLeft size={13} />
-            </button>
-
-            {pageNumbers().map((p, i) =>
-              p === '...' ? (
-                <span key={`dots-${i}`} style={{ padding: '4px 6px', color: '#888', fontSize: '12px' }}>…</span>
-              ) : (
-                <button
-                  key={p}
-                  className={`page-link-btn ${currentPage === p ? 'active' : ''}`}
-                  onClick={() => setCurrentPage(p)}
-                >
-                  {p}
-                </button>
-              )
-            )}
-
-            <button className="page-link-btn" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>
-              <ChevronRight size={13} />
-            </button>
-            <button className="page-link-btn" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>»</button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalRecords={totalRecords}
+          limit={perPage}
+          count={leads.length}
+          onPageChange={(p) => { setCurrentPage(p); fetchLeads(p); }}
+        />
       )}
 
       {/* Modals */}

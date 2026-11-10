@@ -5,6 +5,7 @@ import { URLS } from '../url';
 import * as XLSX from 'xlsx';
 import { formatDate } from '../utils/dateUtils';
 import { getUserRole } from '../utils/permissions';
+import Pagination from './Pagination';
 
 // DateTime formatting utility - MM/DD/YYYY HH:MM
 const formatDateTime = (dateString) => {
@@ -686,12 +687,7 @@ const fetchPaymentHistory = async (targetYearId) => {
   }
 };
 
-// Fetch payment history when component mounts or member changes
-useEffect(() => {
-  if (member._id || member.sNo) {
-    fetchPaymentHistory();
-  }
-}, [member]);
+
 
   // ---- Fetch recent 5 years ----
   const fetchRecentFiveYears = async () => {
@@ -876,6 +872,8 @@ const handleDeleteDoc = async (docId) => {
 
   // File Info (Member Status) State & API Handlers
   const [statusHistory, setStatusHistory] = useState([]);
+  const [fileInfoPage, setFileInfoPage] = useState(1);
+  const fileInfoLimit = 10;
   const [currentFileInfo, setCurrentFileInfo] = useState(null);
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [isSubmittingFileInfo, setIsSubmittingFileInfo] = useState(false);
@@ -961,39 +959,52 @@ const handleDeleteDoc = async (docId) => {
     'CANC': 'CANC'
   };
 
-  const fetchFileInfoHistory = async () => {
-    const memberId = member._id || member.sNo;
+  const fetchFileInfoHistory = async (targetMemberId, targetYearId) => {
+    const memberId = targetMemberId || member._id || member.sNo;
     if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (selectedYearId || uploadYearId || yearId || member?.year_id || member?.raw?.year_id || '');
+    if (!yId) {
+      console.warn('⚠️ Waiting for valid year_id before fetching file info history');
+      return;
+    }
     setLoadingFileInfo(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${URLS.GetFileInfo}${memberId}`, {
+      const queryParam = `?year_id=${encodeURIComponent(yId)}`;
+      const res = await fetch(`${URLS.GetFileInfo}${memberId}${queryParam}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ year_id: yId })
       });
       if (res.ok) {
         const result = await res.json();
         
         if (result.success) {
-          if (Array.isArray(result.history)) {
-            // Sort by creation date, newest first
-            const sortedHistory = result.history.sort((a, b) => {
-              const dateA = new Date(a.createdAt || a.dateTime || 0);
-              const dateB = new Date(b.createdAt || b.dateTime || 0);
-              return dateB - dateA; // Newest first
-            });
-            setStatusHistory(sortedHistory);
-            console.log('✅ Status history updated:', sortedHistory.length, 'entries');
-          } else {
-            setStatusHistory([]);
-          }
-          if (result.currentStatus) {
-            setCurrentFileInfo(result.currentStatus);
+          const rawHistory = Array.isArray(result.history)
+            ? result.history
+            : (Array.isArray(result.data)
+                ? result.data
+                : (Array.isArray(result.data?.history) ? result.data.history : []));
+
+          // Sort by creation date, newest first
+          const sortedHistory = rawHistory.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.created_at || a.dateTime || a.date || 0);
+            const dateB = new Date(b.createdAt || b.created_at || b.dateTime || b.date || 0);
+            return dateB - dateA; // Newest first
+          });
+          setStatusHistory(sortedHistory);
+          console.log('✅ Status history updated:', sortedHistory.length, 'entries');
+
+          if (result.currentStatus || result.data?.currentStatus) {
+            setCurrentFileInfo(result.currentStatus || result.data?.currentStatus);
           }
         }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        console.warn('⚠️ Fetch File Info history error response:', res.status, errData);
       }
     } catch (err) {
       console.warn('⚠️ Fetch File Info history warning:', err);
@@ -1001,13 +1012,6 @@ const handleDeleteDoc = async (docId) => {
       setLoadingFileInfo(false);
     }
   };
-
-  // Refresh fileInfo data whenever member changes OR fileInfo tab becomes active
-  useEffect(() => {
-    if (activeTab === 'fileInfo' || member) {
-      fetchFileInfoHistory();
-    }
-  }, [member]);
 
   const handleCreateFileInfoStatus = async (e) => {
     e.preventDefault();
@@ -1027,21 +1031,26 @@ const handleDeleteDoc = async (docId) => {
       
       // Convert status name to code before sending
       const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
+      const currentYear = selectedYearId || uploadYearId || yearId || member?.year_id || member?.raw?.year_id || '';
+      const submittedComment = commentsInput.trim();
       
       const payload = {
         file_type: fileTypeInput || member.filingType || '',
         status: statusCode,
-        comments: commentsInput.trim()
+        comments: submittedComment,
+        ...(currentYear ? { year_id: currentYear } : {})
       };
 
       console.log('📤 Submitting File Info:', {
         memberId,
         statusName: statusInput,
         statusCode: statusCode,
+        yearId: currentYear,
         payload
       });
 
-      const res = await fetch(`${URLS.CreateFileInfo}${memberId}`, {
+      const queryParam = currentYear ? `?year_id=${encodeURIComponent(currentYear)}` : '';
+      const res = await fetch(`${URLS.CreateFileInfo}${memberId}${queryParam}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -1052,33 +1061,31 @@ const handleDeleteDoc = async (docId) => {
 
       const result = await res.json();
 
-      // console.log('📥 API Response:', { status: res.status, result });
-
       if (res.ok && result.success) {
         setFileInfoSuccessMsg(result.message || 'Member status updated successfully.');
         setTimeout(() => setFileInfoSuccessMsg(''), 4000);
         setCommentsInput('');
         
-        // If the API returns the new status entry, add it to the list immediately
-        if (result.data) {
-          const newEntry = {
-            ...result.data,
-            _id: result.data._id || result.data.id || Date.now(),
-            file_type: fileTypeInput,
-            status: statusInput, // Keep the name for display
-            status_name: statusInput,
-            comments: commentsInput,
-            createdBy: result.data.createdBy || 'Admin',
-            createdAt: result.data.createdAt || new Date().toISOString()
-          };
-          
-          // Add to the beginning of the list (newest first)
-          setStatusHistory(prev => [newEntry, ...prev]);
-          console.log('✅ Added new entry to history (optimistic update)');
-        }
+        // Optimistically add to history so it immediately renders
+        const newEntry = {
+          ...(result.data || {}),
+          _id: result.data?._id || result.data?.id || `temp-${Date.now()}`,
+          file_type: fileTypeInput || member.filingType || 'E-Filing',
+          status: statusInput,
+          status_name: statusInput,
+          comments: submittedComment,
+          comment: submittedComment,
+          createdBy: result.data?.createdBy || result.data?.created_by || 'Admin',
+          createdAt: result.data?.createdAt || result.data?.created_at || new Date().toISOString()
+        };
         
-        // Also refresh the complete history from the server
-        setTimeout(() => fetchFileInfoHistory(), 500);
+        setStatusHistory(prev => [newEntry, ...prev.filter(item => item._id !== newEntry._id)]);
+        console.log('✅ Added new entry to history (optimistic update)');
+        
+        // Also refresh complete history from server with valid year_id
+        if (currentYear) {
+          await fetchFileInfoHistory(memberId, currentYear);
+        }
       } else {
         const errorMsg = result.message || result.error || `Failed to update member status (${res.status})`;
         setFileInfoErrorMsg(errorMsg);
@@ -1159,7 +1166,7 @@ const handleDeleteDoc = async (docId) => {
         setUploadError('');
         break;
       case 'fileInfo':
-        fetchFileInfoHistory();
+        fetchFileInfoHistory(memberId, selectedYearId);
         break;
       default:
         break;
@@ -2449,7 +2456,7 @@ const handleDeleteDoc = async (docId) => {
                     Status History & Activity Log ({statusHistory.length})
                   </h4>
                   <button
-                    onClick={fetchFileInfoHistory}
+                    onClick={() => fetchFileInfoHistory(member._id || member.sNo, selectedYearId)}
                     disabled={loadingFileInfo}
                     style={{
                       border: '1px solid #cbd5e1',
@@ -2485,33 +2492,37 @@ const handleDeleteDoc = async (docId) => {
                     </thead>
                     <tbody>
                       {statusHistory.length > 0 ? (
-                        statusHistory.map((c, i) => {
-                          const fullComment = (c.comments || '').trim();
-                          const MAX_LEN = 100;
-                          const isLong = fullComment.length > MAX_LEN;
-                          const preview = isLong ? `${fullComment.slice(0, MAX_LEN)}...` : (fullComment || '—');
-                          return (
-                            <tr key={c._id || i}>
-                              <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>{i + 1}</td>
-                              <td style={{ fontWeight: '500', whiteSpace: 'nowrap' }}>{c.file_type || member.filingType || '—'}</td>
-                              <td style={{ whiteSpace: 'nowrap' }}>
-                                <span style={{
-                                  background: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#ecfdf5' : '#f0f9ff',
-                                  color: c.status?.includes('EFA') || c.status_name?.includes('Complete') ? '#047857' : '#0369a1',
-                                  border: '1px solid #bae6fd',
-                                  padding: '3px 8px',
-                                  borderRadius: '12px',
-                                  fontSize: '11px',
-                                  fontWeight: '600',
-                                  display: 'inline-block'
-                                }}>
-                                  {c.status_name || c.status || '—'}
-                                </span>
-                              </td>
-                              <td style={{ color: '#334155', maxWidth: '240px', overflow: 'hidden', verticalAlign: 'middle' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <span
-                                    style={{
+                        (() => {
+                          const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
+                          const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
+                          return paginatedStatusHistory.map((c, i) => {
+                            const fullComment = (c.comments || c.comment || c.description || c.notes || '').trim();
+                            const MAX_LEN = 100;
+                            const isLong = fullComment.length > MAX_LEN;
+                            const preview = isLong ? `${fullComment.slice(0, MAX_LEN)}...` : (fullComment || '—');
+                            const displayStatus = CODE_TO_DISPLAY[c.status] || c.status_name || c.status || '—';
+                            return (
+                              <tr key={c._id || i}>
+                                <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>{fileInfoStartIndex + i + 1}</td>
+                                <td style={{ fontWeight: '500', whiteSpace: 'nowrap' }}>{c.file_type || member.filingType || '—'}</td>
+                                <td style={{ whiteSpace: 'nowrap' }}>
+                                  <span style={{
+                                    background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff',
+                                    color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1',
+                                    border: '1px solid #bae6fd',
+                                    padding: '3px 8px',
+                                    borderRadius: '12px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    display: 'inline-block'
+                                  }}>
+                                    {displayStatus}
+                                  </span>
+                                </td>
+                                <td style={{ color: '#334155', maxWidth: '240px', overflow: 'hidden', verticalAlign: 'middle' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span
+                                      style={{
                                       fontSize: '13px',
                                       lineHeight: '1.4',
                                       overflow: 'hidden',
@@ -2559,14 +2570,15 @@ const handleDeleteDoc = async (docId) => {
                                   )}
                                 </div>
                               </td>
-                              <td style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{c.createdBy || 'Admin'}</td>
+                              <td style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{c.createdBy || c.created_by || 'Admin'}</td>
                               <td style={{ color: 'var(--text-muted)', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                                {c.createdAt ? formatDate(c.createdAt) : (c.dateTime ? formatDate(c.dateTime) : '—')}
+                                {formatDateTime(c.createdAt || c.created_at || c.dateTime || c.date || c.updatedAt)}
                               </td>
                             </tr>
                           );
-                        })
-                      ) : (
+                        });
+                      })()
+                    ) : (
                         <tr>
                           <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
@@ -2580,6 +2592,19 @@ const handleDeleteDoc = async (docId) => {
                     </tbody>
                   </table>
                 </div>
+
+                {statusHistory.length > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <Pagination
+                      currentPage={fileInfoPage}
+                      totalPages={Math.ceil(statusHistory.length / fileInfoLimit) || 1}
+                      totalRecords={statusHistory.length}
+                      limit={fileInfoLimit}
+                      count={Math.min(statusHistory.length - (fileInfoPage - 1) * fileInfoLimit, fileInfoLimit)}
+                      onPageChange={(p) => setFileInfoPage(p)}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2711,6 +2736,9 @@ export default function MemberTableLayout({
   const userRole = getUserRole(); // 'super_admin' | 'admin' | 'other'
   const canExportPreviousYear = userRole === 'super_admin' || userRole === 'admin';
   const canExportCurrentYear = userRole === 'super_admin';
+  // Excel download buttons disabled for all roles
+  // const canExportPreviousYear = false;
+  // const canExportCurrentYear = false;
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('');

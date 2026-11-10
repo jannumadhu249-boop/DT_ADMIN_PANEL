@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { URLS } from '../../url';
 import JustUploadedDocsView, { CODE_TO_STATUS_NAME } from './JustUploadedDocsView';
+import Pagination from '../../components/Pagination';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -209,6 +210,7 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalRecords: 0, limit: 20 });
   const [counts, setCounts] = useState({ totalMembers: 0, totalDocuments: 0 });
   const [years, setYears] = useState([]);
+  const [activeYearId, setActiveYearId] = useState('');
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
@@ -235,9 +237,12 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const data = await res.json();
-      if (data.success) {
-        setYears(data.data || []);
-        const defaultYear = (data.data || []).find(y => y.current_year) || data.data?.[0];
+      if (data.success && Array.isArray(data.data)) {
+        setYears(data.data);
+        const defaultYear = data.data.find(y => y.current_year) || data.data[0];
+        const match = data.data.find(y => String(y.name) === currentYearVal);
+        const resolvedId = match?._id || defaultYear?._id || '';
+        setActiveYearId(prev => prev || resolvedId);
         if (!selectedYear && defaultYear && setSelectedYear) {
           setSelectedYear('TY' + defaultYear.name);
         }
@@ -248,16 +253,17 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
   };
 
   // ---- Fetch Uploaded Docs Members ----
-  const fetchClients = async (page = 1, limit = 20, search = '', yearId = '') => {
+  const fetchClients = async (page = 1, limit = 20, search = '', yearId = undefined) => {
     setLoading(true);
     setApiError('');
     try {
       const token = getAuthToken();
+      const resolvedYearId = yearId !== undefined ? yearId : (activeYearId || currentYearId || '');
       const payload = {
         page,
         limit,
         search: search || '',
-        year_id: yearId || currentYearId || ''
+        year_id: resolvedYearId
       };
       const res = await fetch(URLS.GetJustUploadDocs, {
         method: 'POST',
@@ -357,17 +363,17 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
   // ---- Search Handlers ----
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchClients(1, pagination.limit, searchTerm, currentYearId);
+    fetchClients(1, pagination.limit, searchTerm, activeYearId || currentYearId);
   };
 
   const handleClearSearch = () => {
     setSearchTerm('');
-    fetchClients(1, pagination.limit, '', currentYearId);
+    fetchClients(1, pagination.limit, '', activeYearId || currentYearId);
   };
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= pagination.totalPages) {
-      fetchClients(newPage, pagination.limit, searchTerm, currentYearId);
+      fetchClients(newPage, pagination.limit, searchTerm, activeYearId || currentYearId);
     }
   };
 
@@ -452,10 +458,10 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
   }, []);
 
   useEffect(() => {
-    if (years.length > 0 && currentYearId) {
-      fetchClients(1, pagination.limit, searchTerm, currentYearId);
+    if (years.length > 0 && (activeYearId || currentYearId)) {
+      fetchClients(1, pagination.limit, searchTerm, activeYearId || currentYearId);
     }
-  }, [currentYearId, years]);
+  }, [activeYearId, currentYearId, years]);
 
   return (
     <div className="content-card">
@@ -463,9 +469,10 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
         <JustUploadedDocsView
           member={selectedMember}
           selectedYear={selectedYear}
+          yearId={activeYearId || currentYearId}
           onBack={() => {
             setSelectedMember(null);
-            fetchClients(pagination.currentPage, pagination.limit, searchTerm, currentYearId);
+            fetchClients(pagination.currentPage, pagination.limit, searchTerm, activeYearId || currentYearId);
           }}
           onStatusUpdated={handleStatusUpdated}
         />
@@ -635,18 +642,14 @@ export default function JustUploadedDocs({ selectedYear, setSelectedYear }) {
               </div>
 
               {clients.length > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                  <div className="pagination-row" style={{ display: 'flex', gap: '4px' }}>
-                    <button className="page-link-btn" style={{ padding: '6px 12px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(pagination.currentPage - 1)} disabled={pagination.currentPage <= 1}>Prev</button>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map(p => (
-                      <button key={p} className="page-link-btn" style={{ padding: '6px 12px', border: p === pagination.currentPage ? '1px solid #0076a3' : '1px solid #ccc', background: p === pagination.currentPage ? '#0076a3' : '#fff', color: p === pagination.currentPage ? '#fff' : '#000', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(p)}>{p}</button>
-                    ))}
-                    <button className="page-link-btn" style={{ padding: '6px 12px', border: '1px solid #ccc', background: '#fff', borderRadius: '4px', cursor: 'pointer' }} onClick={() => handlePageChange(pagination.currentPage + 1)} disabled={pagination.currentPage >= pagination.totalPages}>Next</button>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#555' }}>
-                    Showing {(pagination.currentPage - 1) * pagination.limit + 1} to {Math.min(pagination.currentPage * pagination.limit, pagination.totalRecords)} of {pagination.totalRecords} entries
-                  </div>
-                </div>
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  totalRecords={pagination.totalRecords}
+                  limit={pagination.limit}
+                  count={clients.length}
+                  onPageChange={(p) => handlePageChange(p)}
+                />
               )}
             </>
           )}

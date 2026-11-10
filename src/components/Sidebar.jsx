@@ -140,7 +140,7 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
           page: 1,
           limit: 1,
           search: "",
-          year_id: currentYearData?._id || "6a59ede933d5d0234c05b6bf",
+          year_id: currentYearData?._id || "",
           filestatus: derivedFilestatus,
           filter: "new",
           status_date: ""

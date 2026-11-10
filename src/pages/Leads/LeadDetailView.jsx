@@ -37,6 +37,7 @@ function AddDiscussionModal({ leadId, onClose, onAdded }) {
     setSubmitting(true);
 
     try {
+      const payloadDate = followupDate || new Date().toISOString().split('T')[0];
       const res = await fetch(`${URLS.CreateFollowUpLead}${leadId}`, {
         method: 'POST',
         headers: {
@@ -44,14 +45,14 @@ function AddDiscussionModal({ leadId, onClose, onAdded }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          followup_date: followupDate || new Date().toISOString().split('T')[0],
+          followup_date: payloadDate,
           description: description.trim(),
         }),
       });
 
       const data = await res.json();
       if (res.ok && data.success !== false) {
-        onAdded(data.data || { followup_date: followupDate, description: description.trim(), createdAt: new Date().toISOString() });
+        onAdded(data.data || { followup_date: payloadDate, description: description.trim(), createdAt: new Date().toISOString() }, payloadDate);
         onClose();
       } else {
         setError(data.message || 'Failed to add follow-up.');
@@ -156,15 +157,41 @@ function AddDiscussionModal({ leadId, onClose, onAdded }) {
 }
 
 /* ─── Lead Detail View ─── */
-export default function LeadDetailView({ lead, onBack }) {
+export default function LeadDetailView({ lead, onBack, onLeadUpdated }) {
   const [activeTab, setActiveTab] = useState('general');
+  const [currentLead, setCurrentLead] = useState(lead);
   const [showAddDiscussion, setShowAddDiscussion] = useState(false);
   const [discussions, setDiscussions] = useState([]);
   const [loadingDiscussions, setLoadingDiscussions] = useState(false);
   const [discussionError, setDiscussionError] = useState('');
 
-  const sc = statusColor(lead.status);
-  const leadId = lead._id || lead.id;
+  useEffect(() => {
+    setCurrentLead(lead);
+  }, [lead]);
+
+  const sc = statusColor(currentLead?.status || lead?.status);
+  const leadId = currentLead?._id || currentLead?.id || lead?._id || lead?.id;
+
+  /* ── Fetch latest Lead Details from server ── */
+  const fetchLeadDetails = useCallback(async () => {
+    if (!leadId) return;
+    try {
+      const res = await fetch(`${URLS.GetLeadById}${leadId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${getAuthToken()}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.data) {
+        setCurrentLead(data.data);
+        if (onLeadUpdated) onLeadUpdated(data.data);
+      }
+    } catch (err) {
+      console.warn('Fetch lead details error:', err);
+    }
+  }, [leadId, onLeadUpdated]);
 
   /* ── Fetch Follow-Ups via API ── */
   const fetchFollowUps = useCallback(async () => {
@@ -181,7 +208,18 @@ export default function LeadDetailView({ lead, onBack }) {
       });
       const data = await res.json();
       if (res.ok && data.success !== false) {
-        setDiscussions(data.data || []);
+        const list = data.data || [];
+        setDiscussions(list);
+        if (list.length > 0) {
+          const latestFollowup = list[0]?.followup_date || list[0]?.followupDate;
+          if (latestFollowup) {
+            setCurrentLead(prev => ({
+              ...prev,
+              followup_date: latestFollowup,
+              followUpDate: latestFollowup
+            }));
+          }
+        }
       } else {
         setDiscussionError(data.message || 'Failed to fetch follow-ups.');
       }
@@ -201,14 +239,14 @@ export default function LeadDetailView({ lead, onBack }) {
 
   /* ── General tab rows ── */
   const GENERAL_ROWS = [
-    { label: 'Name', value: lead.name },
-    { label: 'Email', value: lead.email, isEmail: true },
-    { label: 'Mobile', value: lead.mobile },
-    // { label: 'Referred By',   value: lead.referred_by || lead.referredBy },
-    { label: 'Follow-Up Date', value: formatDate(lead.followup_date || lead.followUpDate) },
-    // { label: 'Created On',    value: formatDate(lead.createdAt || lead.date) },
-    // { label: 'Status',        value: lead.status || 'Pending', isStatus: true },
-    { label: 'Description', value: lead.description },
+    { label: 'Name', value: currentLead?.name },
+    { label: 'Email', value: currentLead?.email, isEmail: true },
+    { label: 'Mobile', value: currentLead?.mobile },
+    // { label: 'Referred By',   value: currentLead?.referred_by || currentLead?.referredBy },
+    { label: 'Follow-Up Date', value: formatDate(currentLead?.followup_date || currentLead?.followUpDate) },
+    // { label: 'Created On',    value: formatDate(currentLead?.createdAt || currentLead?.date) },
+    // { label: 'Status',        value: currentLead?.status || 'Pending', isStatus: true },
+    { label: 'Description', value: currentLead?.description },
   ];
 
   return (
@@ -351,8 +389,21 @@ export default function LeadDetailView({ lead, onBack }) {
         <AddDiscussionModal
           leadId={leadId}
           onClose={() => setShowAddDiscussion(false)}
-          onAdded={(entry) => {
+          onAdded={(entry, newFollowupDate) => {
             setDiscussions(prev => [entry, ...prev]);
+            const updatedDate = newFollowupDate || entry.followup_date || entry.followupDate;
+            if (updatedDate) {
+              setCurrentLead(prev => {
+                const updated = {
+                  ...prev,
+                  followup_date: updatedDate,
+                  followUpDate: updatedDate
+                };
+                if (onLeadUpdated) onLeadUpdated(updated);
+                return updated;
+              });
+            }
+            fetchLeadDetails();
           }}
         />
       )}

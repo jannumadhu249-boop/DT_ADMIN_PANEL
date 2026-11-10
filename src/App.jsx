@@ -375,7 +375,7 @@ export default function App() {
         case 'notes':
           return <Notes />;
         case 'just-uploaded-docs':
-          return <UplodedDocs />;
+          return <UplodedDocs selectedYear={selectedYear} setSelectedYear={setSelectedYear} />;
         case 'fbar-questionnaire':
           return <FbarQuestionnaire />;
         case 'tax-organizer':

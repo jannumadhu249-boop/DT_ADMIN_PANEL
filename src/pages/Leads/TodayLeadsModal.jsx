@@ -119,7 +119,7 @@ export default function TodayLeadsModal({
                 </span>
               </div>
               <p style={{ margin: '2px 0 0', fontSize: '0.82rem', color: 'rgba(255,255,255,0.85)' }}>
-                Scheduled or received on {todayFormatted}
+                Scheduled for follow-up on {todayFormatted}
               </p>
             </div>
           </div>
@@ -220,9 +220,11 @@ export default function TodayLeadsModal({
                         {!isFollowupToday && isCreatedToday && (
                           <span
                             style={{
-                              display: 'inline-block',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
                               fontSize: '0.72rem',
-                              color: '#047857',
+                              color: '#065f46',
                               background: '#d1fae5',
                               padding: '2px 6px',
                               borderRadius: '4px',
@@ -230,7 +232,7 @@ export default function TodayLeadsModal({
                               fontWeight: 600
                             }}
                           >
-                            New Today
+                            <Clock size={11} /> New Today
                           </span>
                         )}
                       </td>
