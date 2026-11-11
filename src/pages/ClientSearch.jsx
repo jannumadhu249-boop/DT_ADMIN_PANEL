@@ -126,34 +126,34 @@ const STATUS_CODE_MAP = {
 };
 
 const CODE_TO_DISPLAY = {
-  'RGO':     'Registered Users',
-  'BIP':     'Information Pending',
-  'SP':      'Scheduling Pending',
-  'IP':      'Interview Pending', 
-  'DP':      'Documents Pending',
-  'PP_I':    'Preparation - 1',
-  'PP_II':   'Preparation - 2',
-  'TR_S_I':  'Review & Summary 1',
+  'RGO': 'Registered Users',
+  'BIP': 'Information Pending',
+  'SP': 'Scheduling Pending',
+  'IP': 'Interview Pending',
+  'DP': 'Documents Pending',
+  'PP_I': 'Preparation - 1',
+  'PP_II': 'Preparation - 2',
+  'TR_S_I': 'Review & Summary 1',
   'TR_S_II': 'Review & Summary 2',
-  'ITIN':    'ITIN Files',
-  'RE_ES':   'Revised Estimate',
-  'PP_EF':   'Payment Pending - Efiling',
-  'PP_PF':   'Payment Pending - Paper filing',
-  'FPR':     'Fee Payment Received - I',
-  'FPR_II':  'Fee Payment Received - II',
-  'FPR_2':   'Fee Payment Received - II',
-  'CR_EF':   'Client Review - Efiling',
-  'CR_PF':   'Client Review - Paper Filing',
-  'EFP_I':   'Efiling Pending - 1',
-  'EFP_II':  'Efiling Pending - 2',
+  'ITIN': 'ITIN Files',
+  'RE_ES': 'Revised Estimate',
+  'PP_EF': 'Payment Pending - Efiling',
+  'PP_PF': 'Payment Pending - Paper filing',
+  'FPR': 'Fee Payment Received - I',
+  'FPR_II': 'Fee Payment Received - II',
+  'FPR_2': 'Fee Payment Received - II',
+  'CR_EF': 'Client Review - Efiling',
+  'CR_PF': 'Client Review - Paper Filing',
+  'EFP_I': 'Efiling Pending - 1',
+  'EFP_II': 'Efiling Pending - 2',
   'EF_AA_I': 'E - Filed & Awaiting Acceptance - 1',
-  'EF_AA_II':'E - Filed & Awaiting Acceptance - 2',
-  'EF_REJ':  'E - Filed & Rejected',
-  'C_R':     'City Return',
-  'EFA_FC':  'E-Filing Accepted & Filing Complete',
-  'PF_P':    'Paper Filing Pending',
-  'PF_D':    'Paper Filing Done',
-  'CANC':    'Cancelled',
+  'EF_AA_II': 'E - Filed & Awaiting Acceptance - 2',
+  'EF_REJ': 'E - Filed & Rejected',
+  'C_R': 'City Return',
+  'EFA_FC': 'E-Filing Accepted & Filing Complete',
+  'PF_P': 'Paper Filing Pending',
+  'PF_D': 'Paper Filing Done',
+  'CANC': 'Cancelled',
 };
 
 // -------------------- OTP Modal (fixed: immediate open with success/error props) --------------------
@@ -853,8 +853,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         const rawHistory = Array.isArray(data.history)
           ? data.history
           : (Array.isArray(data.data)
-              ? data.data
-              : (Array.isArray(data.data?.history) ? data.data.history : []));
+            ? data.data
+            : (Array.isArray(data.data?.history) ? data.data.history : []));
 
         const sorted = rawHistory.sort((a, b) => new Date(b.createdAt || b.created_at || b.dateTime || b.date || 0) - new Date(a.createdAt || a.created_at || a.dateTime || a.date || 0));
         setStatusHistory(sorted);
@@ -886,7 +886,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
       const currentYear = detailYearId || currentYearId || selectedMember?.year_id || '';
       const submittedComment = commentsInput.trim();
-      
+
       // Build payload based on what API expects
       const payload = {
         file_type: fileTypeInput,
@@ -903,15 +903,15 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
-      
+
       // console.log('📥 API Response Status:', res.status);
       const data = await res.json();
       // console.log('📥 API Response Data:', data);
-      
+
       if (res.ok && data.success) {
         setFileInfoSuccessMsg(data.message || 'Status updated successfully.');
         setCommentsInput('');
-        
+
         // Optimistic update
         const newEntry = {
           ...(data.data || {}),
@@ -947,34 +947,34 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     }
   };
 
-    // ---- Fetch admin‑uploaded documents ----
-    const fetchAdminUploadedDocs = async (memberId, targetYearId) => {
-      if (!memberId) return;
-      const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId);
-      setLoadingAdminDocs(true);
-      try {
-        const token = getAuthToken();
-        const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
-        const res = await fetch(`${URLS.GetUploadList}${memberId}${queryParam}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        const result = await res.json();
-        if (result.success && Array.isArray(result.data)) {
-          setAdminUploadedDocs(result.data);
-        } else {
-          setAdminUploadedDocs([]);
+  // ---- Fetch admin‑uploaded documents ----
+  const fetchAdminUploadedDocs = async (memberId, targetYearId) => {
+    if (!memberId) return;
+    const yId = targetYearId !== undefined ? targetYearId : (detailYearId || currentYearId);
+    setLoadingAdminDocs(true);
+    try {
+      const token = getAuthToken();
+      const queryParam = yId ? `?year_id=${encodeURIComponent(yId)}` : '';
+      const res = await fetch(`${URLS.GetUploadList}${memberId}${queryParam}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
-      } catch (err) {
-        // console.warn('⚠️ Fetch admin documents error:', err);
+      });
+      const result = await res.json();
+      if (result.success && Array.isArray(result.data)) {
+        setAdminUploadedDocs(result.data);
+      } else {
         setAdminUploadedDocs([]);
-      } finally {
-        setLoadingAdminDocs(false);
       }
-    };
+    } catch (err) {
+      // console.warn('⚠️ Fetch admin documents error:', err);
+      setAdminUploadedDocs([]);
+    } finally {
+      setLoadingAdminDocs(false);
+    }
+  };
 
   // ---- Upload handler ----
   const handleUploadDocument = async (e) => {
@@ -1035,49 +1035,49 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     }
   };
 
-const handleDeleteDoc = async (docId) => {
-  if (!window.confirm('Are you sure you want to delete this document?')) return;
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm('Are you sure you want to delete this document?')) return;
 
-  setDeleteLoading(true);
-  setUploadError('');
-  setUploadSuccess('');
+    setDeleteLoading(true);
+    setUploadError('');
+    setUploadSuccess('');
 
-  try {
-    const token = getAuthToken();
-    const memberId = member._id || member.sNo;
+    try {
+      const token = getAuthToken();
+      const memberId = member._id || member.sNo;
 
-    const res = await fetch(`${URLS.DeleteUploads}${docId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
+      const res = await fetch(`${URLS.DeleteUploads}${docId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await res.json();
+
+      if (res.ok && result.success) {
+        setUploadSuccess('Document deleted successfully.');
+
+        // 1. Remove from adminUploadedDocs list (Upload tab)
+        setAdminUploadedDocs(prev => prev.filter(doc => (doc._id || doc.id) !== docId));
+
+        // 2. Also remove from profileData.documents (if present)
+        setProfileData(prev => ({
+          ...prev,
+          documents: (prev?.documents || []).filter(d => (d._id || d.id) !== docId)
+        }));
+        setTimeout(() => setUploadSuccess(''), 4000);
+      } else {
+        setUploadError(result.message || 'Failed to delete document.');
       }
-    });
-
-    const result = await res.json();
-
-    if (res.ok && result.success) {
-      setUploadSuccess('Document deleted successfully.');
-
-      // 1. Remove from adminUploadedDocs list (Upload tab)
-      setAdminUploadedDocs(prev => prev.filter(doc => (doc._id || doc.id) !== docId));
-
-      // 2. Also remove from profileData.documents (if present)
-      setProfileData(prev => ({
-        ...prev,
-        documents: (prev?.documents || []).filter(d => (d._id || d.id) !== docId)
-      }));
-      setTimeout(() => setUploadSuccess(''), 4000);
-    } else {
-      setUploadError(result.message || 'Failed to delete document.');
+    } catch (err) {
+      // console.error('Delete error:', err);
+      setUploadError(err.message || 'Network error occurred during deletion.');
+    } finally {
+      setDeleteLoading(false);
     }
-  } catch (err) {
-    // console.error('Delete error:', err);
-    setUploadError(err.message || 'Network error occurred during deletion.');
-  } finally {
-    setDeleteLoading(false);
-  }
-};
+  };
 
   // ---- Bank save handler (fixed) ----
   const handleSaveBankDetails = async (formData) => {
@@ -1170,9 +1170,9 @@ const handleDeleteDoc = async (docId) => {
           ...result.data,
           documents: Array.isArray(result.data.documents)
             ? result.data.documents.map(doc => ({
-                ...doc,
-                isAdminUploaded: doc.isAdminUploaded || doc.new_docs || doc.uploaded_by_admin || doc.admin_upload || false
-              }))
+              ...doc,
+              isAdminUploaded: doc.isAdminUploaded || doc.new_docs || doc.uploaded_by_admin || doc.admin_upload || false
+            }))
             : []
         };
         setProfileData(processedData);
@@ -1359,6 +1359,22 @@ const handleDeleteDoc = async (docId) => {
       }
     }
   }, [searchTerm, currentYearId]);
+
+  // const totalCount = counts[statusCode] !== undefined
+  //   ? counts[statusCode]
+  //   : (counts.all !== undefined ? counts.all : (pagination.totalRecords || displayMembers.length));
+
+  // const filteredTotalRecords = pagination.totalRecords !== undefined ? pagination.totalRecords : displayMembers.length;
+
+  // Total registered members — from API pagination, fallback to current page length
+  const totalCount =
+    typeof pagination.totalRecords === 'number' && pagination.totalRecords > 0
+      ? pagination.totalRecords
+      : clients.length;
+
+  // Is a search currently applied (affects the heading text)
+  const isSearchActive =
+    Boolean(submittedSearch.term && submittedSearch.idType);
 
   // ---- Render ----
   return (
@@ -1904,257 +1920,305 @@ const handleDeleteDoc = async (docId) => {
                   </div>
                 </form>
 
-            {/* Admin Uploaded Documents List */}
-            {loadingAdminDocs ? (
-              <div style={{ padding: '15px', textAlign: 'center', color: '#0076a3' }}>
-                <Loader2 size={18} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} />
-                Loading admin documents...
-              </div>
-            ) : adminUploadedDocs.length > 0 ? (
-              <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
-                <h4 style={{ fontWeight: 'bold', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ background: '#fff7ed', color: '#ea580c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>ADMIN UPLOADS</span>
-                  Admin Uploaded Documents History ({adminUploadedDocs.length})
-                </h4>
-                <div className="table-responsive">
-                  <table className="corporate-table">
-                    <thead>
-                      <tr>
-                        <th>S.NO</th>
-                        <th>DOCUMENT NAME</th>
-                        <th>FILE NAME</th>
-                        <th>FILE SIZE</th>
-                        <th>UPLOADED DATE</th>
-                        <th>ACTION</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminUploadedDocs.map((doc, i) => {
-                        const docName = doc.document_name || doc.original_name || doc.file_name || 'Document';
-                        const fileName = doc.original_name || doc.file_name || '—';
-                        const sizeStr = doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : '—';
-                        const uploadDate = doc.createdAt ? formatDate(doc.createdAt) : '—';
-                        const fileUrl = doc.file_path
-                          ? (doc.file_path.startsWith('http') ? doc.file_path : `${URLS.ImageUrl}${doc.file_path}`)
-                          : null;
-                        return (
-                          <tr key={doc._id || i}>
-                            <td>{i + 1}</td>
-                            <td style={{ fontWeight: '600', color: '#0f172a' }}>{docName}</td>
-                            <td style={{ fontSize: '12px', color: '#475569' }}>{fileName}</td>
-                            <td style={{ fontSize: '12px', color: '#64748b' }}>{sizeStr}</td>
-                            <td style={{ fontSize: '12px', color: '#64748b' }}>{uploadDate}</td>
-                            <td style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              {/* View/Preview button */}
-                              {fileUrl ? (
-                                <a
-                                  href={fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title="View Document"
-                                  style={{
-                                    padding: '4px 10px', fontSize: '12px', border: '1px solid #bae6fd',
-                                    background: '#e0f2fe', color: '#0369a1', borderRadius: '4px',
-                                    cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                    fontWeight: '600', textDecoration: 'none'
-                                  }}
-                                >
-                                  <Eye size={13} />
-                                </a>
-                              ) : (
-                                <span style={{ fontSize: '11px', color: '#94a3b8' }}>No file</span>
-                              )}
-                              {/* Delete button */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteDoc(doc._id || i)}
-                                style={{
-                                  padding: '4px 10px', fontSize: '12px', border: '1px solid #fecaca',
-                                  background: '#fef2f2', color: '#dc2626', borderRadius: '4px',
-                                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
-                                  fontWeight: '600'
-                                }}
-                              >
-                                {deleteLoading ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-              </div>
-            {/* )} */}
-
-            {/* ── FILE INFO ── */}
-            {activeDetailTab === 'fileInfo' && (
-              <div className="file-info-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <form onSubmit={handleCreateFileInfoStatus} style={{ border: '1px solid #e2e8f0', padding: '24px', borderRadius: '6px', background: '#fff' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
-                    <div style={{ background: '#f1f5f9', color: '#0076a3', padding: '9px', borderRadius: '8px', display: 'flex' }}><FileText size={20} /></div>
-                    <div><h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>File Information & Workflow Status</h4><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Update administrative filing status and record status notes</p></div>
+                {/* Admin Uploaded Documents List */}
+                {loadingAdminDocs ? (
+                  <div style={{ padding: '15px', textAlign: 'center', color: '#0076a3' }}>
+                    <Loader2 size={18} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} />
+                    Loading admin documents...
                   </div>
-
-                  {fileInfoSuccessMsg && (
-                    <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ flexShrink: 0 }} /> {fileInfoSuccessMsg}</div>
-                      <button type="button" onClick={() => setFileInfoSuccessMsg('')} style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
-                    </div>
-                  )}
-                  {fileInfoErrorMsg && (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px' }}>
-                      ⚠️ {fileInfoErrorMsg}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>File No</label>
-                      <input type="text" className="search-input-box" style={{ width: '100%', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={selectedMember.file_no} disabled />
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Filing Type <span style={{ color: '#dc2626' }}>*</span></label>
-                      <select className="search-input-box" style={{ width: '100%', background: '#fff', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={fileTypeInput} onChange={e => setFileTypeInput(e.target.value)}>
-                        <option value="E-Filing">E-Filing</option>
-                        <option value="Paper Filing">Paper Filing</option>
-                      </select>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>File Status <span style={{ color: '#dc2626' }}>*</span></label>
-                      <select className="search-input-box" style={{ width: '100%', background: '#fff', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={statusInput} onChange={e => setStatusInput(e.target.value)}>
-                        {WORKFLOW_STATUSES.map((s, i) => (
-                          <option key={i} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
-                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Comments</label>
-                    <textarea rows="4" className="search-input-box" style={{ width: '100%', height: 'auto', fontFamily: 'inherit', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} placeholder="Enter administrative workflow update comments..." value={commentsInput} onChange={e => setCommentsInput(e.target.value)} />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn btn-secondary" style={{ padding: '8px 20px', fontWeight: '600', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', background: '#fff', color: '#475569' }} onClick={() => { setCommentsInput(''); setStatusInput(selectedMember.filestatus_name || selectedMember.current_stage || 'E-Filing Accepted & Filing Complete'); setFileTypeInput(selectedMember.file_type || 'E-Filing'); setFileInfoErrorMsg(''); }}>Reset</button>
-                    <button type="submit" disabled={isSubmittingFileInfo} style={{ background: '#0076a3', padding: '8px 22px', border: 'none', fontWeight: '600', color: '#fff', borderRadius: '6px', cursor: isSubmittingFileInfo ? 'not-allowed' : 'pointer', opacity: isSubmittingFileInfo ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      {isSubmittingFileInfo ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
-                      {isSubmittingFileInfo ? 'Submitting...' : 'Submit Update'}
-                    </button>
-                  </div>
-                </form>
-
-                <div style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '6px', background: '#fff', position: 'relative' }}>
-                  {loadingFileInfo && (
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, borderRadius: '6px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0076a3', fontSize: '13px', fontWeight: '600' }}>
-                        <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Refreshing history...
-                      </div>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
-                    <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '14px', color: '#0f172a' }}>Status History & Activity Log ({statusHistory.length})</h4>
-                    <button onClick={() => selectedMember?._id && fetchFileInfoHistory(selectedMember._id)} disabled={loadingFileInfo} style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', color: '#475569', cursor: loadingFileInfo ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: loadingFileInfo ? 0.5 : 1 }}>
-                      <RefreshCw size={14} style={{ animation: loadingFileInfo ? 'spin 1s linear infinite' : 'none' }} /> Refresh
-                    </button>
-                  </div>
-                  <div className="table-responsive">
-                    <table className="corporate-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                      <thead><tr><th>S.No</th><th>Filing Type</th><th>Status</th><th>Comments</th><th>Created By</th><th>Date & Time</th></tr></thead>
-                      <tbody>
-                        {statusHistory.length > 0 ? (
-                          (() => {
-                            const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
-                            const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
-                            return paginatedStatusHistory.map((c, i) => {
-                              const MAX_COMMENT_LENGTH = 100;
-                              const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
-                              const isTruncated = comment.length > MAX_COMMENT_LENGTH;
-                              const displayStatus = CODE_TO_DISPLAY?.[c.status] || c.status_name || c.status || '—';
-                              
-                              return (
-                                <tr key={c._id || i}>
-                                  <td>{fileInfoStartIndex + i + 1}</td>
-                                  <td style={{ fontWeight: '500' }}>{c.file_type || selectedMember.file_type || '—'}</td>
-                                  <td>
-                                    <span style={{ background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
-                                      {displayStatus}
-                                    </span>
-                                  </td>
-                                  <td style={{ color: '#334155', maxWidth: '350px' }}>
-                                    {isTruncated ? (
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-                                          {comment.substring(0, MAX_COMMENT_LENGTH)}...
-                                        </span>
-                                        <button
-                                          onClick={() => setCommentPopup({ text: comment })}
-                                          style={{
-                                            background: '#e0f2fe',
-                                            border: '1px solid #bae6fd',
-                                            color: '#0369a1',
-                                            padding: '3px 8px',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                            cursor: 'pointer',
-                                            whiteSpace: 'nowrap'
-                                          }}
-                                        >
-                                          View
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <span>{comment}</span>
-                                    )}
-                                  </td>
-                                  <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
-                                  <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>
-                                </tr>
-                              );
-                            });
-                          })()
-                        ) : (
+                ) : adminUploadedDocs.length > 0 ? (
+                  <div style={{ marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
+                    <h4 style={{ fontWeight: 'bold', fontSize: '14px', color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ background: '#fff7ed', color: '#ea580c', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '700' }}>ADMIN UPLOADS</span>
+                      Admin Uploaded Documents History ({adminUploadedDocs.length})
+                    </h4>
+                    <div className="table-responsive">
+                      <table className="corporate-table">
+                        <thead>
                           <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <FileText size={32} color="#cbd5e1" />
-                                <p style={{ margin: 0, fontSize: '13px', fontWeight: '500' }}>No status history available yet</p>
-                                <p style={{ margin: 0, fontSize: '11px' }}>Submit an update above to create the first entry</p>
-                              </div>
-                            </td>
+                            <th>S.NO</th>
+                            <th>DOCUMENT NAME</th>
+                            <th>FILE NAME</th>
+                            <th>FILE SIZE</th>
+                            <th>UPLOADED DATE</th>
+                            <th>ACTION</th>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {statusHistory.length > 0 && (
-                    <div style={{ marginTop: '16px' }}>
-                      <Pagination
-                        currentPage={fileInfoPage}
-                        totalPages={Math.ceil(statusHistory.length / fileInfoLimit) || 1}
-                        totalRecords={statusHistory.length}
-                        limit={fileInfoLimit}
-                        count={Math.min(statusHistory.length - (fileInfoPage - 1) * fileInfoLimit, fileInfoLimit)}
-                        onPageChange={(p) => setFileInfoPage(p)}
-                      />
+                        </thead>
+                        <tbody>
+                          {adminUploadedDocs.map((doc, i) => {
+                            const docName = doc.document_name || doc.original_name || doc.file_name || 'Document';
+                            const fileName = doc.original_name || doc.file_name || '—';
+                            const sizeStr = doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : '—';
+                            const uploadDate = doc.createdAt ? formatDate(doc.createdAt) : '—';
+                            const fileUrl = doc.file_path
+                              ? (doc.file_path.startsWith('http') ? doc.file_path : `${URLS.ImageUrl}${doc.file_path}`)
+                              : null;
+                            return (
+                              <tr key={doc._id || i}>
+                                <td>{i + 1}</td>
+                                <td style={{ fontWeight: '600', color: '#0f172a' }}>{docName}</td>
+                                <td style={{ fontSize: '12px', color: '#475569' }}>{fileName}</td>
+                                <td style={{ fontSize: '12px', color: '#64748b' }}>{sizeStr}</td>
+                                <td style={{ fontSize: '12px', color: '#64748b' }}>{uploadDate}</td>
+                                <td style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                  {/* View/Preview button */}
+                                  {fileUrl ? (
+                                    <a
+                                      href={fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      title="View Document"
+                                      style={{
+                                        padding: '4px 10px', fontSize: '12px', border: '1px solid #bae6fd',
+                                        background: '#e0f2fe', color: '#0369a1', borderRadius: '4px',
+                                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                        fontWeight: '600', textDecoration: 'none'
+                                      }}
+                                    >
+                                      <Eye size={13} />
+                                    </a>
+                                  ) : (
+                                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>No file</span>
+                                  )}
+                                  {/* Delete button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDoc(doc._id || i)}
+                                    style={{
+                                      padding: '4px 10px', fontSize: '12px', border: '1px solid #fecaca',
+                                      background: '#fef2f2', color: '#dc2626', borderRadius: '4px',
+                                      cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                      fontWeight: '600'
+                                    }}
+                                  >
+                                    {deleteLoading ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
+          {/* )} */}
+
+          {/* ── FILE INFO ── */}
+          {activeDetailTab === 'fileInfo' && (
+            <div className="file-info-view" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <form onSubmit={handleCreateFileInfoStatus} style={{ border: '1px solid #e2e8f0', padding: '24px', borderRadius: '6px', background: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px', paddingBottom: '14px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ background: '#f1f5f9', color: '#0076a3', padding: '9px', borderRadius: '8px', display: 'flex' }}><FileText size={20} /></div>
+                  <div><h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>File Information & Workflow Status</h4><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Update administrative filing status and record status notes</p></div>
+                </div>
+
+                {fileInfoSuccessMsg && (
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}><CheckCircle size={16} style={{ flexShrink: 0 }} /> {fileInfoSuccessMsg}</div>
+                    <button type="button" onClick={() => setFileInfoSuccessMsg('')} style={{ background: 'none', border: 'none', color: '#047857', cursor: 'pointer', padding: '2px' }}><X size={14} /></button>
+                  </div>
+                )}
+                {fileInfoErrorMsg && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '16px' }}>
+                    ⚠️ {fileInfoErrorMsg}
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>File No</label>
+                    <input type="text" className="search-input-box" style={{ width: '100%', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={selectedMember.file_no} disabled />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Filing Type <span style={{ color: '#dc2626' }}>*</span></label>
+                    <select className="search-input-box" style={{ width: '100%', background: '#fff', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={fileTypeInput} onChange={e => setFileTypeInput(e.target.value)}>
+                      <option value="E-Filing">E-Filing</option>
+                      <option value="Paper Filing">Paper Filing</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>File Status <span style={{ color: '#dc2626' }}>*</span></label>
+                    <select className="search-input-box" style={{ width: '100%', background: '#fff', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} value={statusInput} onChange={e => setStatusInput(e.target.value)}>
+                      {WORKFLOW_STATUSES.map((s, i) => (
+                        <option key={i} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '18px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#334155' }}>Comments</label>
+                  <textarea rows="4" className="search-input-box" style={{ width: '100%', height: 'auto', fontFamily: 'inherit', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px' }} placeholder="Enter administrative workflow update comments..." value={commentsInput} onChange={e => setCommentsInput(e.target.value)} />
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '8px 20px', fontWeight: '600', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', background: '#fff', color: '#475569' }} onClick={() => { setCommentsInput(''); setStatusInput(selectedMember.filestatus_name || selectedMember.current_stage || 'E-Filing Accepted & Filing Complete'); setFileTypeInput(selectedMember.file_type || 'E-Filing'); setFileInfoErrorMsg(''); }}>Reset</button>
+                  <button type="submit" disabled={isSubmittingFileInfo} style={{ background: '#0076a3', padding: '8px 22px', border: 'none', fontWeight: '600', color: '#fff', borderRadius: '6px', cursor: isSubmittingFileInfo ? 'not-allowed' : 'pointer', opacity: isSubmittingFileInfo ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {isSubmittingFileInfo ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                    {isSubmittingFileInfo ? 'Submitting...' : 'Submit Update'}
+                  </button>
+                </div>
+              </form>
+
+              <div style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '6px', background: '#fff', position: 'relative' }}>
+                {loadingFileInfo && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, borderRadius: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0076a3', fontSize: '13px', fontWeight: '600' }}>
+                      <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Refreshing history...
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                  <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '14px', color: '#0f172a' }}>Status History & Activity Log ({statusHistory.length})</h4>
+                  <button onClick={() => selectedMember?._id && fetchFileInfoHistory(selectedMember._id)} disabled={loadingFileInfo} style={{ border: '1px solid #cbd5e1', background: '#fff', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '500', color: '#475569', cursor: loadingFileInfo ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '6px', opacity: loadingFileInfo ? 0.5 : 1 }}>
+                    <RefreshCw size={14} style={{ animation: loadingFileInfo ? 'spin 1s linear infinite' : 'none' }} /> Refresh
+                  </button>
+                </div>
+                <div className="table-responsive">
+                  <table className="corporate-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead><tr><th>S.No</th><th>Filing Type</th><th>Status</th><th>Comments</th><th>Created By</th><th>Date & Time</th></tr></thead>
+                    <tbody>
+                      {statusHistory.length > 0 ? (
+                        (() => {
+                          const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
+                          const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
+                          return paginatedStatusHistory.map((c, i) => {
+                            const MAX_COMMENT_LENGTH = 100;
+                            const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
+                            const isTruncated = comment.length > MAX_COMMENT_LENGTH;
+                            const displayStatus = CODE_TO_DISPLAY?.[c.status] || c.status_name || c.status || '—';
+
+                            return (
+                              <tr key={c._id || i}>
+                                <td>{fileInfoStartIndex + i + 1}</td>
+                                <td style={{ fontWeight: '500' }}>{c.file_type || selectedMember.file_type || '—'}</td>
+                                <td>
+                                  <span style={{ background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
+                                    {displayStatus}
+                                  </span>
+                                </td>
+                                <td style={{ color: '#334155', maxWidth: '350px' }}>
+                                  {isTruncated ? (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
+                                        {comment.substring(0, MAX_COMMENT_LENGTH)}...
+                                      </span>
+                                      <button
+                                        onClick={() => setCommentPopup({ text: comment })}
+                                        style={{
+                                          background: '#e0f2fe',
+                                          border: '1px solid #bae6fd',
+                                          color: '#0369a1',
+                                          padding: '3px 8px',
+                                          borderRadius: '4px',
+                                          fontSize: '11px',
+                                          fontWeight: '600',
+                                          cursor: 'pointer',
+                                          whiteSpace: 'nowrap'
+                                        }}
+                                      >
+                                        View
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span>{comment}</span>
+                                  )}
+                                </td>
+                                <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
+                                <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>
+                              </tr>
+                            );
+                          });
+                        })()
+                      ) : (
+                        <tr>
+                          <td colSpan="6" style={{ textAlign: 'center', padding: '30px', color: '#94a3b8' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              <FileText size={32} color="#cbd5e1" />
+                              <p style={{ margin: 0, fontSize: '13px', fontWeight: '500' }}>No status history available yet</p>
+                              <p style={{ margin: 0, fontSize: '11px' }}>Submit an update above to create the first entry</p>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {statusHistory.length > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <Pagination
+                      currentPage={fileInfoPage}
+                      totalPages={Math.ceil(statusHistory.length / fileInfoLimit) || 1}
+                      totalRecords={statusHistory.length}
+                      limit={fileInfoLimit}
+                      count={Math.min(statusHistory.length - (fileInfoPage - 1) * fileInfoLimit, fileInfoLimit)}
+                      onPageChange={(p) => setFileInfoPage(p)}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         // </div>
       ) : (
         // ==================== TABLE VIEW ====================
         <>
-          <div className="header-section" style={{ borderBottom: '1px solid var(--border-light)', paddingBottom: '12px', marginBottom: '20px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>All registered members</h2>
+          <div
+            className="header-section"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '10px',
+              borderBottom: '1px solid var(--border-light)',
+              paddingBottom: '12px',
+              marginBottom: '20px',
+            }}
+          >
+            <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+              {isSearchActive ? 'Search Results' : 'All Registered Members'}
+            </h2>
+
+            <span
+              className="pill-badge"
+              aria-live="polite"
+              // title={
+              //   isSearchActive
+              //     ? `Matches for "${submittedSearch.term}" (${submittedSearch.idType})`
+              //     : 'Total registered members for the selected financial year'
+              // }
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: '600',
+                whiteSpace: 'nowrap',
+                background: loading ? '#f1f5f9' : '#e0f2fe',
+                color: loading ? '#64748b' : '#0369a1',
+                border: `1px solid ${loading ? '#e2e8f0' : '#bae6fd'}`,
+              }}
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                  Loading…
+                </>
+              ) : (
+                <>
+                  Total {totalCount}
+                </>
+              )}
+            </span>
           </div>
 
           {apiError && (
