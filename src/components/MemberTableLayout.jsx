@@ -1437,7 +1437,7 @@ const handleDeleteDoc = async (docId) => {
                       ['OCCUPATION', profileData.spouseInfo.occupation],
                       ['VISA TYPE', profileData.spouseInfo.visa_type],
                       ['TAX ID TYPE', profileData.spouseInfo.tax_id_type],
-                      ['SSN / ITIN', profileData.spouseInfo.ssn_tin],
+                      ['SSN / ITIN', profileData.spouseInfo.ssn_itin],
                       ['PASSPORT NUMBER', profileData.spouseInfo.passport_number],
                       ['PASSPORT EXPIRY DATE', profileData.spouseInfo.passport_expiry_date ? formatDate(profileData.spouseInfo.passport_expiry_date, '') : ''],
                       ['VISA NUMBER', profileData.spouseInfo.visa_number],

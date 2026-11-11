@@ -763,6 +763,7 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
               <AlertTriangle size={16} className="menu-icon" />
               <span className="uppercase-label">CANCELLED</span>
             </div>
+            <span className="sidebar-badge">{getCount('cancelled')}</span>
           </button>
         )}
 
