@@ -375,6 +375,11 @@ body {
   line-height: 1.3;
 }
 
+/* Keep the badge invisible until the live API count arrives (no static/placeholder number) */
+.sidebar-badge:empty {
+  display: none;
+}
+
 /* Main Content Workspace */
 .main-viewport {
   flex-grow: 1;

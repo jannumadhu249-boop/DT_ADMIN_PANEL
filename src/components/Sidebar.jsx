@@ -15,6 +15,7 @@ import {
 import { URLS } from '../url';
 import { INITIAL_MEMBERS } from '../data/mockMembers';
 import { hasViewPermission } from '../utils/permissions';
+import { ChangePasswordModal } from './PasswordModals';
 
 export default function Sidebar({ selectedYear = '', currentFilter = 'all-registered', onFilterChange, userPermissions }) {
   // canView: returns true if the user has view permission for a sidebar filter key
@@ -124,6 +125,60 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
     }
   };
 
+  // --- Excel password (change password) ---
+  const [excelPasswordOpen, setExcelPasswordOpen] = useState(false);
+
+  // Changes the Excel export password. The API validates the current password itself:
+  // 401 = wrong current password, 400 = mismatch / missing fields.
+  const handleChangeExportPassword = async ({ currentPassword, newPassword, confirmPassword }) => {
+    const token = getAuthToken();
+    if (!token) {
+      return { success: false, message: 'Session expired. Please log in again.' };
+    }
+
+    try {
+      const res = await fetch(URLS.ChangeExportPassword, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      });
+
+      if (res.ok) {
+        const result = await res.json().catch(() => ({}));
+        if (result.success === false) {
+          return { success: false, message: result.message || 'Unable to change the password.' };
+        }
+
+        // Keep the Excel download flow (member pages) in sync with the new password
+        sessionStorage.setItem('verifiedExportPassword', newPassword);
+        window.dispatchEvent(new Event('exportPasswordChanged'));
+
+        return { success: true, message: result.message || 'Password changed successfully!' };
+      }
+
+      if (res.status === 401) {
+        return { success: false, message: 'Current password is incorrect.' };
+      }
+      if (res.status === 400) {
+        return { success: false, message: 'Passwords do not match or the new password is not valid.' };
+      }
+
+      let apiMessage = '';
+      try {
+        const errorBody = await res.json();
+        apiMessage = errorBody?.message || errorBody?.error || '';
+      } catch {
+        // non-JSON error body
+      }
+      return { success: false, message: apiMessage || `Unable to change the password. (${res.status})` };
+    } catch (err) {
+      return { success: false, message: err.message || 'Unable to change the password.' };
+    }
+  };
+
   const [apiCounts, setApiCounts] = useState(null);
   const [justUploadedCount, setJustUploadedCount] = useState(0);
 
@@ -142,7 +197,7 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
           search: "",
           year_id: currentYearData?._id || "",
           filestatus: derivedFilestatus,
-          filter: "new",
+          filter: "all",
           status_date: ""
         };
         const res = await fetch(URLS.GetAllRegistred, {
@@ -240,10 +295,10 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
       return apiCounts[code];
     }
     switch (filterKey) {
-      case 'all-registered': return INITIAL_MEMBERS.length;
-      case 'registered-users': return INITIAL_MEMBERS.filter(m => m.status === 'Registered Users').length;
-      case 'info-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Information Pending').length;
-      case 'scheduling-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Scheduling Pending').length;
+      case 'all-registered': return INITIAL_MEMBERS.filter(m => m.status === 'all-registered').length;
+      case 'registered-users': return INITIAL_MEMBERS.filter(m => m.status === 'registered-users').length;
+      case 'info-pending': return INITIAL_MEMBERS.filter(m => m.status === 'info-pending').length;
+      case 'scheduling-pending': return INITIAL_MEMBERS.filter(m => m.status === 'scheduling-pending').length;
       case 'interview-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Interview Pending').length;
       case 'docs-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Documents Pending').length;
       case 'preparation-1': return INITIAL_MEMBERS.filter(m => m.status === 'Preparation - 1').length;
@@ -913,7 +968,7 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
         )}
 
         {/* Settings */}
-        {(canView('staff') || canView('role-access')) && (
+        {(canView('staff') || canView('role-access') || canView('excel-password')) && (
           <div className="sidebar-dropdown-group">
             <button
               className="sidebar-menu-btn dropdown-trigger"
@@ -951,11 +1006,30 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
                     </div>
                   </button>
                 )}
+
+                {canView('excel-password') && (
+                  <button
+                    className="submenu-item"
+                    onClick={() => setExcelPasswordOpen(true)}
+                  >
+                    <div className="menu-btn-left">
+                      <ChevronRight size={12} className="chevron-bullet" />
+                      <span>Excel Password</span>
+                    </div>
+                  </button>
+                )}
               </div>
             )}
           </div>
         )}
       </div>
+
+      {/* Change Excel password (admin) */}
+      <ChangePasswordModal
+        isOpen={excelPasswordOpen}
+        onClose={() => setExcelPasswordOpen(false)}
+        onSave={handleChangeExportPassword}
+      />
     </aside>
   );
 }

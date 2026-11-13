@@ -606,7 +606,7 @@ const buildProfileFromClient = (client) => {
 };
 
 // -------------------- Main ClientSearch Component --------------------
-export default function ClientSearch({ member, selectedYear, setSelectedYear }) {
+export default function ClientSearch({ member, selectedYear, setSelectedYear, statusCode = 'all', }) {
   // ---- UI state ----
   const [searchTerm, setSearchTerm] = useState('');
   const [searchIdType, setSearchIdType] = useState('');
@@ -674,6 +674,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [counts, setCounts] = useState({});
 
   // ---- Derived ----
   const currentYearVal = selectedYear ? selectedYear.replace('TY', '') : '2026';
@@ -713,7 +714,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
         searchBy: searchBy || '',
         search: search || '',
         year_id: yearId || currentYearId,
-        filestatus: 'all'
+        filestatus: statusCode || 'all'
       };
       const res = await fetch(URLS.GetAllRegistred, {
         method: 'POST',
@@ -724,6 +725,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
       if (data.success) {
         setClients(data.data || []);
         if (data.pagination) setPagination(data.pagination);
+        // Status-wise counters returned by the API: { all: 4959, SP: 408, CANC: 1, ... }
+        setCounts(data.counts || {});
       } else {
         setApiError(data.message || 'Failed to fetch clients.');
       }
@@ -1347,7 +1350,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     if (years.length > 0 && currentYearId) {
       fetchClients(1, pagination.limit, submittedSearch.idType, submittedSearch.term, currentYearId);
     }
-  }, [currentYearId, years]);
+  }, [currentYearId, years, statusCode]);
 
   // Auto-refresh when search term is cleared after a search
   useEffect(() => {
@@ -1360,21 +1363,23 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
     }
   }, [searchTerm, currentYearId]);
 
-  // const totalCount = counts[statusCode] !== undefined
-  //   ? counts[statusCode]
-  //   : (counts.all !== undefined ? counts.all : (pagination.totalRecords || displayMembers.length));
-
-  // const filteredTotalRecords = pagination.totalRecords !== undefined ? pagination.totalRecords : displayMembers.length;
-
-  // Total registered members — from API pagination, fallback to current page length
-  const totalCount =
-    typeof pagination.totalRecords === 'number' && pagination.totalRecords > 0
-      ? pagination.totalRecords
-      : clients.length;
-
-  // Is a search currently applied (affects the heading text)
+  // Is a search currently applied (affects the heading text and the counter)
   const isSearchActive =
     Boolean(submittedSearch.term && submittedSearch.idType);
+
+  const activeStatusCode = statusCode || 'all';
+
+  const filteredTotalRecords = pagination.totalRecords !== undefined ? pagination.totalRecords : clients.length;
+
+  // Header counter — driven by the API `counts` object, keyed by the active status code.
+  // e.g. statusCode="all" -> counts.all, statusCode="CANC" -> counts.CANC
+  // When a search is applied the status counter no longer reflects the visible rows,
+  // so fall back to the paged total for the current result set.
+  const totalCount = isSearchActive
+    ? filteredTotalRecords
+    : (typeof counts[activeStatusCode] === 'number'
+      ? counts[activeStatusCode]
+      : (typeof counts.all === 'number' ? counts.all : filteredTotalRecords));
 
   // ---- Render ----
   return (
@@ -1476,7 +1481,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
                       { label: 'ALTERNATE NUMBER', value: profileData?.personalInfo?.alternate_number || selectedMember.alter_number, masked: true, key: `${selectedMember._id}_alter_contact`, isContact: true },
                       { label: 'TIME ZONE', value: profileData?.personalInfo?.timezone || selectedMember.time_zone },
                       { label: 'SSN / TIN TYPE', value: profileData?.personalInfo?.ssn_tin || selectedMember.tin_type },
-                      { label: 'DATE OF BIRTH', value: profileData?.personalInfo?.date_of_birth || '—' },
+                      { label: 'DATE OF BIRTH', value: profileData?.personalInfo?.date_of_birth ? formatDate(profileData.personalInfo.date_of_birth) : '—' },
                       { label: 'OCCUPATION', value: profileData?.personalInfo?.occupation || '—' },
                       { label: 'GENDER', value: profileData?.personalInfo?.gender || '—' },
                       { label: 'VISA TYPE', value: profileData?.personalInfo?.visa_type || '—' },
@@ -1546,7 +1551,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear }) 
                         ['OCCUPATION', profileData.spouseInfo.occupation],
                         ['VISA TYPE', profileData.spouseInfo.visa_type],
                         ['TAX ID TYPE', profileData.spouseInfo.tax_id_type],
-                        ['SSN / ITIN', profileData.spouseInfo.ssn_tin],
+                        ['SSN / ITIN', profileData.spouseInfo.ssn_itin],
                         ['PASSPORT NUMBER', profileData.spouseInfo.passport_number],
                         ['PASSPORT EXPIRY DATE', profileData.spouseInfo.passport_expiry_date ? formatDate(profileData.spouseInfo.passport_expiry_date, '') : ''],
                         ['VISA NUMBER', profileData.spouseInfo.visa_number],

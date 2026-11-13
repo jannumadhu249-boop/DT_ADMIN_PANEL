@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import { formatDate } from '../utils/dateUtils';
 import { getUserRole } from '../utils/permissions';
 import Pagination from './Pagination';
+import { PasswordPromptModal } from './PasswordModals';
 
 // DateTime formatting utility - MM/DD/YYYY HH:MM
 const formatDateTime = (dateString) => {
@@ -1371,6 +1372,7 @@ const handleDeleteDoc = async (docId) => {
                         { label: 'GENDER', value: profileData?.personalInfo?.gender || '—' },
                         { label: 'VISA TYPE', value: profileData?.personalInfo?.visa_type || '—' },
                         { label: 'EMAIL', value: profileData?.personalInfo?.email || member.raw?.email || member.email || '—', masked: true, requiresOtp: true, isEmail: true, key: `${member._id || member.sNo}_email_detail` },
+                        { label: 'ALTERNATE EMAIL', value: profileData?.personalInfo?.alternate_email || member.raw?.alternate_email || member.alternate_email || '-', masked: true, requiresOtp: true, isEmail: true, key: `${member._id || member.sNo}_alter_email` },
                         { label: 'MAILING ADDRESS', value: profileData?.personalInfo?.mailing_address || '—' },
                         { label: 'CITY', value: profileData?.personalInfo?.city || '—' },
                         { label: 'STATE', value: profileData?.personalInfo?.state || '—' },
@@ -2778,6 +2780,25 @@ export default function MemberTableLayout({
   const [pendingMemberId, setPendingMemberId] = useState(null);
   const [commentsHistory, setCommentsHistory] = useState(INITIAL_COMMENTS || {});
 
+  // Password Protection State
+  const [passwordPromptOpen, setPasswordPromptOpen] = useState(false);
+  const [pendingDownloadType, setPendingDownloadType] = useState(null);
+  
+  // Password state - stores verified password for this session
+  const [downloadPassword, setDownloadPassword] = useState(() => {
+    return sessionStorage.getItem('verifiedExportPassword') || '';
+  });
+
+  // The password is changed from the sidebar (Manage Admins -> Excel Password),
+  // so pick up the new value instead of keeping the stale one from mount time
+  useEffect(() => {
+    const syncExportPassword = () => {
+      setDownloadPassword(sessionStorage.getItem('verifiedExportPassword') || '');
+    };
+    window.addEventListener('exportPasswordChanged', syncExportPassword);
+    return () => window.removeEventListener('exportPasswordChanged', syncExportPassword);
+  }, []);
+
   // API State
   const [apiMembers, setApiMembers] = useState([]);
   const [isApiLoaded, setIsApiLoaded] = useState(false);
@@ -3117,25 +3138,65 @@ useEffect(() => {
     }
   };
 
+  // Password verification handler - API Integration
+  const handleVerifyPassword = async (inputPassword) => {
+    try {
+      const response = await fetch(URLS.VerifyExportPassword, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getAuthToken()}`
+        },
+        body: JSON.stringify({ password: inputPassword })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Store verified password for this session
+        setDownloadPassword(inputPassword);
+        sessionStorage.setItem('verifiedExportPassword', inputPassword);
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Password verification error:', error);
+      return false;
+    }
+  };
+
+  // Trigger password prompt before download
+  const requestDownload = (type) => {
+    setPendingDownloadType(type);
+    setPasswordPromptOpen(true);
+  };
+
+  // Execute download after password verification
+  const executeDownload = async () => {
+    if (pendingDownloadType === 'previous') {
+      await handleExportPreviousYear();
+    } else if (pendingDownloadType === 'current') {
+      await handleExportCurrentYear();
+    }
+    setPendingDownloadType(null);
+  };
+
   // API Call: Export Previous Year Excel (All except current year)
   const handleExportPreviousYear = async () => {
     if (!canExportPreviousYear) {
       console.warn('⛔ Unauthorized: You do not have permission to export previous year members.');
       return;
     }
-    // console.log('📤 Exporting Previous Year Members (excluding current year)');
     
     try {
       const token = getAuthToken();
-      // Backend expects: year_id as empty string, search, and filestatus
       const payload = {
-        year_id: "",
+        export_password: downloadPassword,
         search: "",
-        filestatus: ""
+        filestatus: "",
+        filter: "",
+        status_date: ""
       };
-
-      // console.log('📤 Export payload:', payload);
-      // console.log('📤 API endpoint:', URLS.ExportPerivousYear);
 
       const res = await fetch(URLS.ExportPerivousYear, {
         method: 'POST',
@@ -3145,8 +3206,6 @@ useEffect(() => {
         },
         body: JSON.stringify(payload)
       });
-
-      // console.log('📥 Export response status:', res.status);
 
       if (!res.ok) {
         const errorText = await res.text();
@@ -3204,10 +3263,12 @@ useEffect(() => {
     }
     try {
       const token = getAuthToken();
-      // Backend expects: search and filestatus only (NO year_id)
       const payload = {
+        export_password: downloadPassword,
         search: "",
-        filestatus: ""
+        filestatus: "",
+        filter: "",
+        status_date: ""
       };
 
       const res = await fetch(URLS.ExportCurrentYear, {
@@ -3271,6 +3332,11 @@ useEffect(() => {
   const totalCount = counts[statusCode] !== undefined
     ? counts[statusCode]
     : (counts.all !== undefined ? counts.all : (pagination.totalRecords || displayMembers.length));
+
+  // const totalCount =
+  //   typeof pagination.totalRecords === 'number' && pagination.totalRecords > 0
+  //     ? pagination.totalRecords
+  //     : displayMembers.length;
 
   const filteredTotalRecords = pagination.totalRecords !== undefined ? pagination.totalRecords : displayMembers.length;
 
@@ -3356,18 +3422,26 @@ useEffect(() => {
           <span className="pill-badge">Total {totalCount}</span>
         </div>
 
-        {/* Two Excel Download Cards in same row (Role-based access control) */}
+        {/* Excel Download Cards & Password Settings */}
         {(canExportPreviousYear || canExportCurrentYear) && (
           <div className="excel-btn-group" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
             {canExportPreviousYear && (
-              <button className="excel-download-btn-card" onClick={handleExportPreviousYear}>
-                <span className="excel-btn-top">⬇ Excel</span>
+              <button 
+                className="excel-download-btn-card" 
+                onClick={() => requestDownload('previous')}
+                title="Password required to download"
+              >
+                <span className="excel-btn-top">🔒 ⬇ Excel</span>
                 <span className="excel-btn-bottom">Note: Download All members except current year</span>
               </button>
             )}
             {canExportCurrentYear && (
-              <button className="excel-download-btn-card" onClick={handleExportCurrentYear}>
-                <span className="excel-btn-top">⬇ Excel</span>
+              <button 
+                className="excel-download-btn-card" 
+                onClick={() => requestDownload('current')}
+                title="Password required to download"
+              >
+                <span className="excel-btn-top">🔒 ⬇ Excel</span>
                 <span className="excel-btn-bottom">Note: Download All Members current year only</span>
               </button>
             )}
@@ -3541,6 +3615,24 @@ useEffect(() => {
         onVerify={handleTableOtpVerify}
         onResend={() => pendingMemberId && handleSendEmailOtp(pendingMemberId)}
         fieldLabel="Email Address"
+      />
+
+      {/* Password Prompt Modal for Excel Download */}
+      <PasswordPromptModal
+        isOpen={passwordPromptOpen}
+        onClose={() => {
+          setPasswordPromptOpen(false);
+          setPendingDownloadType(null);
+        }}
+        onVerify={async (password) => {
+          const isValid = await handleVerifyPassword(password);
+          if (isValid) {
+            await executeDownload();
+            return true;
+          }
+          return false;
+        }}
+        downloadType={pendingDownloadType === 'previous' ? 'Previous Year Excel' : 'Current Year Excel'}
       />
     </div>
   );

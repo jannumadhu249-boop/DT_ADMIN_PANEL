@@ -32,6 +32,8 @@ export const URLS = {
     VerifyEmailOtp : base_url + "v1/dollarTax/admin/registeredMembers/verifyViewEmailOtp",
     SendContactOtp : base_url + "v1/dollarTax/admin/registeredMembers/sendViewContactOtp",
     VerifyContactOtp : base_url + "v1/dollarTax/admin/registeredMembers/verifyViewContactOtp",
+    VerifyExportPassword : base_url + "v1/dollarTax/admin/registeredMembers/verifyExportPassword",
+    ChangeExportPassword : base_url + "v1/dollarTax/admin/registeredMembers/changeExportPassword",
     ExportCurrentYear : base_url + "v1/dollarTax/admin/registeredMembers/exportCurrentYearMembers",
     ExportPerivousYear : base_url + "v1/dollarTax/admin/registeredMembers/exportPreviousMembers",
 

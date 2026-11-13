@@ -276,7 +276,7 @@ export default function RefereeReport() {
     try {
       const token = getAuthToken();
       const url = type === 'referee' ? URLS.SendEmailOtp : URLS.RefereeSendEmailOtp;
-      const body = type === 'referee' ? { referral_id: itemId } : { member_id: itemId };
+      const body = type === 'referee' ? { member_id: itemId } : { referral_id: itemId };
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -343,8 +343,8 @@ export default function RefereeReport() {
       const token = getAuthToken();
       const url = pendingType === 'referee' ? URLS.VerifyEmailOtp : URLS.RefereeVerifyEmailOtp;
       const body = pendingType === 'referee'
-        ? { referral_id: pendingItemId, otp: code }
-        : { member_id: pendingItemId, otp: code };
+        ? { member_id: pendingItemId, otp: code }
+        : { referral_id: pendingItemId, otp: code };
       const response = await fetch(url, {
         method: 'POST',
         headers: {
