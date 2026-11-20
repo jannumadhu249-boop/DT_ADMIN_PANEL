@@ -391,7 +391,7 @@ export default function RefereeReport() {
       
       const todaysList = referees.filter(ref => {
         const followUpDate = ref.followUpDate ? ref.followUpDate.split('T')[0] : '';
-        console.log('📅 Referee:', ref.name, 'Follow-up:', followUpDate, 'Today:', today, 'Match:', followUpDate === today, 'Status:', ref.status);
+        // console.log('📅 Referee:', ref.name, 'Follow-up:', followUpDate, 'Today:', today, 'Match:', followUpDate === today, 'Status:', ref.status);
         return followUpDate === today && ref.status !== 'Completed';
       });
       

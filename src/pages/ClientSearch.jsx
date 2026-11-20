@@ -5,10 +5,11 @@ import {
   FileDown, Clock, CreditCard, UploadCloud, Download, MessageSquare,
   ChevronLeft, Loader2, Edit3, Plus,
   RefreshCw, CheckCircle, X, Trash2, FileText,
-  Shield
+  Shield, Calendar
 } from 'lucide-react';
 import { URLS } from '../url';
 import { formatDate } from '../utils/dateUtils';
+import { WORKFLOW_STATUSES, toDisplayStatus, toStatusCode } from '../utils/statusUtils';
 import Pagination from '../components/Pagination';
 
 const getAuthToken = () => {
@@ -21,140 +22,6 @@ const getAuthToken = () => {
 };
 
 // -------------------- Constants --------------------
-const WORKFLOW_STATUSES = [
-  'Registered Users',
-  'Scheduling Pending',
-  'Information Pending',
-  'Interview Pending',
-  'Documents Pending',
-  'Preparation Pending - 1',
-  'Preparation Pending - 2',
-  'Review & Summary 1',
-  'Review & Summary 2',
-  'ITIN Files',
-  'Revised Estimate',
-  'Payment Pending - Efiling',
-  'Payment Pending - Paper filing',
-  'Fee Payment Received - I',
-  'Fee Payment Received - II',
-  'Client Review - Efiling',
-  'Client Review - Paper Filing',
-  'Efiling Pending - 1',
-  'Efiling Pending - 2',
-  'E - Filed & Awaiting Acceptance - 1',
-  'E - Filed & Awaiting Acceptance - 2',
-  'E - Filed & Rejected',
-  'City Return',
-  'E-Filing Accepted & Filing Complete',
-  'Paper Filing Pending',
-  'Paper Filing Done',
-  'Cancelled'
-];
-
-const STATUS_CODE_MAP = {
-  'Registered Users': 'RGO',
-  'Registered Only': 'RGO', // Alias for Registered Users
-  'Scheduling Pending': 'SP',
-  'Information Pending': 'BIP',
-  'Interview Pending': 'IP',
-  'Documents Pending': 'DP',
-
-  // Preparation 1 & 2
-  'Preparation - 1': 'PP_I',
-  'Preparation - 2': 'PP_II',
-
-  // Review & Summary 1 & 2
-  'Review & Summary 1': 'TR_S_I',
-  'Review & Summary 2': 'TR_S_II',
-
-  'ITIN Files': 'ITIN',
-  'Revised Estimate': 'RE_ES',
-  'Payment Pending - Efiling': 'PP_EF',
-  'Payment Pending - Paper filing': 'PP_PF',
-
-  // Fee Payment Received I & II
-  'Fee Payment Received - I': 'FPR',
-  'Fee Payment Received - II': 'FPR_II',
-
-  'Client Review - Efiling': 'CR_EF',
-  'Client Review - Paper Filing': 'CR_PF',
-
-  // Efiling Pending 1 & 2
-  'Efiling Pending - 1': 'EFP_I',
-  'Efiling Pending - 2': 'EFP_II',
-
-  // E - Filed & Awaiting Acceptance 1 & 2
-  'E - Filed & Awaiting Acceptance - 1': 'EF_AA_I',
-  'E - Filed & Awaiting Acceptance - 2': 'EF_AA_II',
-
-  'E - Filed & Rejected': 'EF_REJ',
-  'City Return': 'C_R',
-  'E-Filing Accepted & Filing Complete': 'EFA_FC',
-  'Paper Filing Pending': 'PF_P',
-  'Paper Filing Done': 'PF_D',
-  'Cancelled': 'CANC',
-
-  // Direct code identity mappings
-  'RGO': 'RGO',
-  'SP': 'SP',
-  'BIP': 'BIP',
-  'IP': 'IP',
-  'DP': 'DP',
-  'PP_I': 'PP_I',
-  'PP_II': 'PP_II',
-  'TR_S_I': 'TR_S_I',
-  'TR_S_II': 'TR_S_II',
-  'ITIN': 'ITIN',
-  'RE_ES': 'RE_ES',
-  'PP_EF': 'PP_EF',
-  'PP_PF': 'PP_PF',
-  'FPR': 'FPR',
-  'FPR_II': 'FPR_II',
-  'FPR_2': 'FPR_II',
-  'CR_EF': 'CR_EF',
-  'CR_PF': 'CR_PF',
-  'EFP_I': 'EFP_I',
-  'EFP_II': 'EFP_II',
-  'EF_AA_I': 'EF_AA_I',
-  'EF_AA_II': 'EF_AA_II',
-  'EF_REJ': 'EF_REJ',
-  'C_R': 'C_R',
-  'EFA_FC': 'EFA_FC',
-  'PF_P': 'PF_P',
-  'PF_D': 'PF_D',
-  'CANC': 'CANC'
-};
-
-const CODE_TO_DISPLAY = {
-  'RGO': 'Registered Users',
-  'BIP': 'Information Pending',
-  'SP': 'Scheduling Pending',
-  'IP': 'Interview Pending',
-  'DP': 'Documents Pending',
-  'PP_I': 'Preparation - 1',
-  'PP_II': 'Preparation - 2',
-  'TR_S_I': 'Review & Summary 1',
-  'TR_S_II': 'Review & Summary 2',
-  'ITIN': 'ITIN Files',
-  'RE_ES': 'Revised Estimate',
-  'PP_EF': 'Payment Pending - Efiling',
-  'PP_PF': 'Payment Pending - Paper filing',
-  'FPR': 'Fee Payment Received - I',
-  'FPR_II': 'Fee Payment Received - II',
-  'FPR_2': 'Fee Payment Received - II',
-  'CR_EF': 'Client Review - Efiling',
-  'CR_PF': 'Client Review - Paper Filing',
-  'EFP_I': 'Efiling Pending - 1',
-  'EFP_II': 'Efiling Pending - 2',
-  'EF_AA_I': 'E - Filed & Awaiting Acceptance - 1',
-  'EF_AA_II': 'E - Filed & Awaiting Acceptance - 2',
-  'EF_REJ': 'E - Filed & Rejected',
-  'C_R': 'City Return',
-  'EFA_FC': 'E-Filing Accepted & Filing Complete',
-  'PF_P': 'Paper Filing Pending',
-  'PF_D': 'Paper Filing Done',
-  'CANC': 'Cancelled',
-};
 
 // -------------------- OTP Modal (fixed: immediate open with success/error props) --------------------
 function OtpModal({ isOpen, onClose, onVerify, onResend, fieldLabel, initialError, initialSuccess }) {
@@ -632,7 +499,9 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
   const fileInfoLimit = 10;
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [fileTypeInput, setFileTypeInput] = useState('E-Filing');
-  const [statusInput, setStatusInput] = useState('E-Filing Accepted & Filing Complete');
+  const [statusInput, setStatusInput] = useState(
+    toDisplayStatus(selectedMember?.filestatus || selectedMember?.current_stage) || 'Registered Users'
+  );
   const [commentsInput, setCommentsInput] = useState('');
   const [commentPopup, setCommentPopup] = useState(null);
   const [isSubmittingFileInfo, setIsSubmittingFileInfo] = useState(false);
@@ -886,7 +755,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
 
     try {
       const token = getAuthToken();
-      const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
+            const statusCode = toStatusCode(statusInput);
       const currentYear = detailYearId || currentYearId || selectedMember?.year_id || '';
       const submittedComment = commentsInput.trim();
 
@@ -919,8 +788,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
         const newEntry = {
           ...(data.data || {}),
           _id: data.data?._id || data.data?.id || `temp-${Date.now()}`,
-          file_type: fileTypeInput,
-          status: statusInput,
+                    file_type: fileTypeInput,
+          status: statusCode,
           status_name: statusInput,
           comments: submittedComment,
           comment: submittedComment,
@@ -934,7 +803,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
         }
         // Update quick status bar
         if (selectedMember) {
-          setSelectedMember(prev => ({ ...prev, filestatus_name: statusInput, current_stage: statusInput }));
+          setSelectedMember(prev => ({ ...prev, filestatus: statusCode, filestatus_name: statusInput, current_stage: statusCode }));
         }
         setTimeout(() => setFileInfoSuccessMsg(''), 3000);
       } else {
@@ -1003,7 +872,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
       const token = getAuthToken();
       const formData = new FormData();
       formData.append('document', uploadFile);
-      formData.append('document_type_id', uploadDocTypeId);
+      formData.append('document_type', uploadDocTypeId);
       formData.append('document_name', uploadDocName.trim() || uploadFile.name);
       const activeYear = uploadYearId || detailYearId || currentYearId;
       if (activeYear) {
@@ -1306,7 +1175,9 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
     const dummyProfile = buildProfileFromClient(client);
     setProfileData(dummyProfile);
     setActiveDetailTab('personal');
-    setStatusInput(client.filestatus_name || client.current_stage || 'E-Filing Accepted & Filing Complete');
+    setStatusInput(
+      toDisplayStatus(client.filestatus || client.filestatus_name || client.current_stage) || 'Registered Users'
+    );
     setFileTypeInput(client.file_type || 'E-Filing');
     setStatusHistory([]);
     setPaymentHistory([]);
@@ -1316,8 +1187,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
         {
           _id: '1',
           file_type: client.file_type || 'E-Filing',
-          status: client.filestatus_name || client.current_stage,
-          status_name: client.filestatus_name || client.current_stage,
+          status: client.filestatus || client.current_stage,
+          status_name: toDisplayStatus(client.filestatus_name || client.filestatus || client.current_stage),
           comments: 'Initial registration.',
           createdBy: 'System',
           createdAt: client.date_created
@@ -1399,7 +1270,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
               </strong>
               &nbsp;|&nbsp; File No: <strong>{selectedMember.file_no}</strong>
               &nbsp;|&nbsp; {selectedMember.file_type}
-              &nbsp;|&nbsp; <span style={{ color: statusColor(selectedMember.filestatus_name || selectedMember.current_stage), fontWeight: 600 }}>{selectedMember.filestatus_name || selectedMember.current_stage}</span>
+              &nbsp;|&nbsp; <span style={{ color: statusColor(toDisplayStatus(selectedMember.filestatus || selectedMember.filestatus_name || selectedMember.current_stage)), fontWeight: 600 }}>{toDisplayStatus(selectedMember.filestatus || selectedMember.filestatus_name || selectedMember.current_stage, '—')}</span>
             </div>
             {years.length > 0 && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1486,6 +1357,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                       { label: 'GENDER', value: profileData?.personalInfo?.gender || '—' },
                       { label: 'VISA TYPE', value: profileData?.personalInfo?.visa_type || '—' },
                       { label: 'EMAIL', value: profileData?.personalInfo?.email || selectedMember.email, masked: true, key: `${selectedMember._id}_email`, isEmail: true },
+                      { label: 'ALTERNATE EMAIL', value: profileData?.personalInfo?.alternate_email || selectedMember?.alternate_email || '-', masked: true, requiresOtp: true, isEmail: true, key: `${selectedMember._id}_alter_email` },
                       { label: 'MAILING ADDRESS', value: profileData?.personalInfo?.mailing_address || '—' },
                       { label: 'CITY', value: profileData?.personalInfo?.city || '—' },
                       { label: 'STATE', value: profileData?.personalInfo?.state || '—' },
@@ -1568,7 +1440,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                 ) : (
                   <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                     <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No spouse details submitted yet</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Member stage: <strong>{selectedMember.filestatus_name || selectedMember.current_stage || 'Basic Information Pending'}</strong></p>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Member stage: <strong>{toDisplayStatus(selectedMember.filestatus || selectedMember.filestatus_name || selectedMember.current_stage) || 'Information Pending'}</strong></p>
                   </div>
                 )}
               </div>
@@ -1749,39 +1621,80 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
             )}
 
             {/* ── INTERVIEW ── */}
-            {activeDetailTab === 'interview' && (
-              <div style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '6px', background: '#fff' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
-                  <div style={{ background: '#fce7f3', color: '#be185d', padding: '9px', borderRadius: '8px', display: 'flex' }}><MessageSquare size={20} /></div>
-                  <div><h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Interview Scheduling Info</h4><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Consultation date, time slot and status</p></div>
-                </div>
-                {profileData?.interview && Object.keys(profileData.interview).length > 0 ? (
+            {activeDetailTab === 'interview' && (() => {
+              // The profile API returns `interview` as an array of schedules
+              // (older builds returned a single object), so normalise both shapes.
+              const interviewSource = profileData?.interviews ?? profileData?.interview;
+              const allInterviews = Array.isArray(interviewSource)
+                ? interviewSource
+                : (interviewSource && typeof interviewSource === 'object' && Object.keys(interviewSource).length > 0
+                  ? [interviewSource]
+                  : []);
+              const sortedInterviews = [...allInterviews].sort((a, b) => {
+                const da = new Date(a.consultation_date || a.createdAt || 0);
+                const db = new Date(b.consultation_date || b.createdAt || 0);
+                return db - da;
+              });
+              const latestInterview = sortedInterviews[0] || null;
+              const previousInterviews = sortedInterviews.slice(1);
+
+              const renderCard = (iv, label, labelColor, labelBg) => (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: labelBg, color: labelColor, border: `1px solid ${labelColor}33`, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', marginBottom: '10px' }}>
+                    <Calendar size={13} />
+                    {label}
+                  </div>
                   <div className="table-responsive">
                     <table className="corporate-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                       <tbody>
                         <tr><td style={{ fontWeight: 'bold', width: '30%', color: '#555', padding: '10px 10px', borderBottom: '1px solid #eee' }}>Consultation Date</td>
-                          <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>{profileData.interview.consultation_date ? formatDate(profileData.interview.consultation_date) : '—'}</td></tr>
+                          <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>{iv.consultation_date ? formatDate(iv.consultation_date) : '—'}</td></tr>
                         <tr><td style={{ fontWeight: 'bold', width: '30%', color: '#555', padding: '10px 10px', borderBottom: '1px solid #eee' }}>Time Slot</td>
-                          <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>{profileData.interview.time_slot?.slot || '—'}</td></tr>
+                          <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>{iv.time_slot?.slot || (typeof iv.time_slot === 'string' ? iv.time_slot : '—')}</td></tr>
                         <tr><td style={{ fontWeight: 'bold', width: '30%', color: '#555', padding: '10px 10px', borderBottom: '1px solid #eee' }}>Interview Status</td>
                           <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>
-                            {profileData.interview.status ? (
+                            {iv.status ? (
                               <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
-                                {profileData.interview.status}
+                                {iv.status}
                               </span>
                             ) : '—'}
                           </td></tr>
                       </tbody>
                     </table>
                   </div>
-                ) : (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                    <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No interview scheduled yet</p>
-                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Consultation details will appear once scheduled by the member or admin.</p>
+                </div>
+              );
+
+              return (
+                <div style={{ border: '1px solid #e2e8f0', padding: '20px', borderRadius: '6px', background: '#fff' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ background: '#fce7f3', color: '#be185d', padding: '9px', borderRadius: '8px', display: 'flex' }}><MessageSquare size={20} /></div>
+                    <div><h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Interview Scheduling Info</h4><p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Consultation date, time slot and status</p></div>
                   </div>
-                )}
-              </div>
-            )}
+                  {latestInterview ? (
+                    <div>
+                      {/* Latest = Scheduled Interview */}
+                      {renderCard(latestInterview, 'Scheduled Interview', '#0369a1', '#e0f2fe')}
+
+                      {/* Previous = Re-scheduled Interviews */}
+                      {previousInterviews.length > 0 && (
+                        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed #e2e8f0' }}>
+                          <h5 style={{ fontSize: '13px', fontWeight: '700', color: '#475569', margin: '0 0 12px 0' }}>Re-scheduled Interviews</h5>
+                          {previousInterviews.map((iv, idx) =>
+                            renderCard(iv, `Re-scheduled Interview #${idx + 1}`, '#b45309', '#fffbeb')
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No interview scheduled yet</p>
+                      <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Consultation details will appear once scheduled by the member or admin.</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* ── PAY TAB ── */}
             {activeDetailTab === 'pay' && (
@@ -1879,10 +1792,10 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '5px' }}>Document Type <span style={{ color: '#dc2626' }}>*</span></label>
                       <select value={uploadDocTypeId} onChange={e => setUploadDocTypeId(e.target.value)} style={{ width: '100%', padding: '9px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '13px', background: '#fff' }}>
                         <option value="">Select Document Type</option>
-                        <option value="tax_summary">Tax Summary</option>
-                        <option value="revised_tax_summary">Revised Tax Summary</option>
-                        <option value="tax_review_copy">Tax Review Copy</option>
-                        <option value="filed_return_for_records">Filed Return For Records</option>
+                        <option value="Tax Summary">Tax Summary</option>
+                        <option value="Revised Tax Summary">Revised Tax Summary</option>
+                        <option value="Tax Review Copy">Tax Review Copy</option>
+                        <option value="Filed Return For Records">Filed Return For Records</option>
                       </select>
                     </div>
                     {years.length > 0 && (
@@ -2061,7 +1974,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button type="button" className="btn btn-secondary" style={{ padding: '8px 20px', fontWeight: '600', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', background: '#fff', color: '#475569' }} onClick={() => { setCommentsInput(''); setStatusInput(selectedMember.filestatus_name || selectedMember.current_stage || 'E-Filing Accepted & Filing Complete'); setFileTypeInput(selectedMember.file_type || 'E-Filing'); setFileInfoErrorMsg(''); }}>Reset</button>
+                  <button type="button" className="btn btn-secondary" style={{ padding: '8px 20px', fontWeight: '600', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', background: '#fff', color: '#475569' }} onClick={() => { setCommentsInput(''); setStatusInput(toDisplayStatus(selectedMember.filestatus || selectedMember.filestatus_name || selectedMember.current_stage) || 'Registered Users'); setFileTypeInput(selectedMember.file_type || 'E-Filing'); setFileInfoErrorMsg(''); }}>Reset</button>
                   <button type="submit" disabled={isSubmittingFileInfo} style={{ background: '#0076a3', padding: '8px 22px', border: 'none', fontWeight: '600', color: '#fff', borderRadius: '6px', cursor: isSubmittingFileInfo ? 'not-allowed' : 'pointer', opacity: isSubmittingFileInfo ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {isSubmittingFileInfo ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : null}
                     {isSubmittingFileInfo ? 'Submitting...' : 'Submit Update'}
@@ -2095,14 +2008,15 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                             const MAX_COMMENT_LENGTH = 100;
                             const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
                             const isTruncated = comment.length > MAX_COMMENT_LENGTH;
-                            const displayStatus = CODE_TO_DISPLAY?.[c.status] || c.status_name || c.status || '—';
+                            const displayStatus = toDisplayStatus(c.status || c.status_name, '—');
+                            const isCompletion = toStatusCode(c.status || c.status_name) === 'EFA_FC';
 
                             return (
                               <tr key={c._id || i}>
                                 <td>{fileInfoStartIndex + i + 1}</td>
                                 <td style={{ fontWeight: '500' }}>{c.file_type || selectedMember.file_type || '—'}</td>
                                 <td>
-                                  <span style={{ background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
+                                  <span style={{ background: (isCompletion || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff', color: (isCompletion || displayStatus.includes('Complete')) ? '#047857' : '#0369a1', border: '1px solid #bae6fd', padding: '3px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: '600', display: 'inline-block' }}>
                                     {displayStatus}
                                   </span>
                                 </td>
@@ -2290,6 +2204,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                       clients.map((client, index) => {
                         const rowNum = (pagination.currentPage - 1) * pagination.limit + index + 1;
                         const emailKey = `cs_${client._id}_email`;
+                        const displayStatus = toDisplayStatus(client.filestatus || client.filestatus_name || client.current_stage, '—');
                         return (
                           <tr key={client._id}>
                             <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>{rowNum}</td>
@@ -2305,8 +2220,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                               </div>
                             </td>
                             <td style={{ padding: '10px 10px', borderBottom: '1px solid #eee' }}>
-                              <span style={{ color: (client.filestatus_name || client.current_stage || '').includes('Complete') ? '#28a745' : (client.filestatus_name || client.current_stage || '').includes('Pending') ? '#856404' : '#212529', fontWeight: (client.filestatus_name || client.current_stage || '').includes('Complete') ? 'bold' : 'normal' }}>
-                                {client.filestatus_name || client.current_stage || '—'}
+                              <span style={{ color: displayStatus.includes('Complete') ? '#28a745' : displayStatus.includes('Pending') ? '#856404' : '#212529', fontWeight: displayStatus.includes('Complete') ? 'bold' : 'normal' }}>
+                                {displayStatus}
                               </span>
                             </td>
                             <td style={{ textAlign: 'center', padding: '10px 10px', borderBottom: '1px solid #eee' }}>

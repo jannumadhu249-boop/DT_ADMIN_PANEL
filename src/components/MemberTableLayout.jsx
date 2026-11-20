@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Eye, EyeOff, Download, Search, Calendar, ChevronLeft, RefreshCw, Loader2, Shield, Clock, CheckCircle, X, Send, Landmark, Plus, Edit3, User, Users, UserCheck, MapPin, FileDown, MessageSquare, CreditCard, UploadCloud, FileText, Trash2 } from 'lucide-react';
-import { getMemberDetails, WORKFLOW_STATUSES, INITIAL_COMMENTS, INITIAL_MEMBERS } from '../data/mockMembers';
+import { getMemberDetails, INITIAL_COMMENTS, INITIAL_MEMBERS } from '../data/mockMembers';
+import { WORKFLOW_STATUSES, toDisplayStatus, toStatusCode } from '../utils/statusUtils';
 import { URLS } from '../url';
 import * as XLSX from 'xlsx';
 import { formatDate } from '../utils/dateUtils';
@@ -28,38 +29,6 @@ const getAuthToken = () => {
     if (value) return value;
   }
   return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhZG1pbl9pZCI6IjZhNThiZDFjNzE1ZjE4ZTYxZDQxY2Y5MiIsImVtYWlsIjoiZGl2eWFwZW5keWFsYTA3MTdAZ21haWwuY29tIiwiYWRtaW5fc3RhZ2UiOiJzdXBlciIsImlhdCI6MTc4NDIwNDE1OCwiZXhwIjoxODE1NzQwMTU4fQ.1pjPlGU41H1G5ei3AfTEcaWk9O1eyRTG769xnpj5xts';
-};
-
-/* ─── Reverse map: backend filestatus code → WORKFLOW_STATUSES display name ─── */
-const CODE_TO_DISPLAY = {
-  'RGO':     'Registered Users',
-  'BIP':     'Information Pending',
-  'SP':      'Scheduling Pending',
-  'IP':      'Interview Pending', 
-  'DP':      'Documents Pending',
-  'PP_I':    'Preparation - 1',
-  'PP_II':   'Preparation - 2',
-  'TR_S_I':  'Review & Summary 1',
-  'TR_S_II': 'Review & Summary 2',
-  'ITIN':    'ITIN Files',
-  'RE_ES':   'Revised Estimate',
-  'PP_EF':   'Payment Pending - Efiling',
-  'PP_PF':   'Payment Pending - Paper filing',
-  'FPR':     'Fee Payment Received - I',
-  'FPR_II':  'Fee Payment Received - II',
-  'FPR_2':   'Fee Payment Received - II',
-  'CR_EF':   'Client Review - Efiling',
-  'CR_PF':   'Client Review - Paper Filing',
-  'EFP_I':   'Efiling Pending - 1',
-  'EFP_II':  'Efiling Pending - 2',
-  'EF_AA_I': 'E - Filed & Awaiting Acceptance - 1',
-  'EF_AA_II':'E - Filed & Awaiting Acceptance - 2',
-  'EF_REJ':  'E - Filed & Rejected',
-  'C_R':     'City Return',
-  'EFA_FC':  'E-Filing Accepted & Filing Complete',
-  'PF_P':    'Paper Filing Pending',
-  'PF_D':    'Paper Filing Done',
-  'CANC':    'Cancelled',
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -534,10 +503,10 @@ function MemberDetailFullPage({ member, yearId, onBack, commentsHistory, onAddCo
   const [commentPopup, setCommentPopup] = useState(null); // { text: string } | null
   const [commentStatus, setCommentStatus] = useState(member.status);
   const [fileTypeInput, setFileTypeInput] = useState('E-Filing');
-  // Use raw filestatus code (from member.raw) to resolve the correct WORKFLOW_STATUSES display name.
-  // Falls back to member.status (backend display name) or first status.
+  // Resolve the current status through the shared map so the dropdown always
+  // shows the same label that the status history rows display.
   const [statusInput, setStatusInput] = useState(
-    CODE_TO_DISPLAY[member.raw?.filestatus || ''] || member.status || 'Registered Users'
+    toDisplayStatus(member.raw?.filestatus || member.status) || 'Registered Users'
   );
 
   // Profile API State
@@ -818,7 +787,7 @@ const fetchPaymentHistory = async (targetYearId) => {
     setFileTypeInput(defaultFileType);
     // Re-resolve the display name from the raw status code whenever the member changes.
     setStatusInput(
-      CODE_TO_DISPLAY[member.raw?.filestatus || ''] || member.status || 'Registered Users'
+      toDisplayStatus(member.raw?.filestatus || member.status) || 'Registered Users'
     );
   }, [member]);
 
@@ -885,81 +854,6 @@ const handleDeleteDoc = async (docId) => {
   // const [statusInput, setStatusInput] = useState(member.status || 'EFA_FC');
   const [commentsInput, setCommentsInput] = useState('');
 
-  // Status name to code mapping
-  const STATUS_CODE_MAP = {
-    'Registered Users': 'RGO',
-    'Registered Only': 'RGO',
-    'Basic Information Pending': 'BIP',
-    'Scheduling Pending': 'SP',
-    'Interview Pending': 'IP',
-    'Documents Pending': 'DP',
-
-    // Preparation 1 & 2
-    'Preparation - 1': 'PP_I',
-    'Preparation - 2': 'PP_II',
-
-    // Review & Summary 1 & 2
-    'Review & Summary 1': 'TR_S_I',
-    'Review & Summary 2': 'TR_S_II',
-
-    'ITIN Files': 'ITIN',
-    'Revised Estimate': 'RE_ES',
-    'Payment Pending - Efiling': 'PP_EF',
-    'Payment Pending - Paper filing': 'PP_PF',
-
-    // Fee Payment Received I & II
-    'Fee Payment Received - I': 'FPR',
-    'Fee Payment Received - II': 'FPR_II',
-
-    'Client Review - Efiling': 'CR_EF',
-    'Client Review - Paper Filing': 'CR_PF',
-
-    // Efiling Pending 1 & 2
-    'Efiling Pending - 1': 'EFP_I',
-    'Efiling Pending - 2': 'EFP_II',
-
-    // E - Filed & Awaiting Acceptance 1 & 2
-    'E - Filed & Awaiting Acceptance - 1': 'EF_AA_I',
-    'E - Filed & Awaiting Acceptance - 2': 'EF_AA_II',
-
-    'E - Filed & Rejected': 'EF_REJ',
-    'City Return': 'C_R',
-    'E-Filing Accepted & Filing Complete': 'EFA_FC',
-    'Paper Filing Pending': 'PF_P',
-    'Paper Filing Done': 'PF_D',
-    'Cancelled': 'CANC',
-
-    // Direct code identity mappings
-    'RGO': 'RGO',
-    'BIP': 'BIP',
-    'SP': 'SP',
-    'IP': 'IP',
-    'DP': 'DP',
-    'PP_I': 'PP_I',
-    'PP_II': 'PP_II',
-    'TR_S_I': 'TR_S_I',
-    'TR_S_II': 'TR_S_II',
-    'ITIN': 'ITIN',
-    'RE_ES': 'RE_ES',
-    'PP_EF': 'PP_EF',
-    'PP_PF': 'PP_PF',
-    'FPR': 'FPR',
-    'FPR_II': 'FPR_II',
-    'FPR_2': 'FPR_II',
-    'CR_EF': 'CR_EF',
-    'CR_PF': 'CR_PF',
-    'EFP_I': 'EFP_I',
-    'EFP_II': 'EFP_II',
-    'EF_AA_I': 'EF_AA_I',
-    'EF_AA_II': 'EF_AA_II',
-    'EF_REJ': 'EF_REJ',
-    'C_R': 'C_R',
-    'EFA_FC': 'EFA_FC',
-    'PF_P': 'PF_P',
-    'PF_D': 'PF_D',
-    'CANC': 'CANC'
-  };
-
   const fetchFileInfoHistory = async (targetMemberId, targetYearId) => {
     const memberId = targetMemberId || member._id || member.sNo;
     if (!memberId) return;
@@ -998,6 +892,12 @@ const handleDeleteDoc = async (docId) => {
           });
           setStatusHistory(sortedHistory);
           console.log('✅ Status history updated:', sortedHistory.length, 'entries');
+          // Update the File Status dropdown to reflect the actual latest status from history
+          if (sortedHistory.length > 0) {
+            const latestEntry = sortedHistory[0];
+            const latestDisplay = toDisplayStatus(latestEntry.status || latestEntry.status_name);
+            if (latestDisplay) setStatusInput(latestDisplay);
+          }
 
           if (result.currentStatus || result.data?.currentStatus) {
             setCurrentFileInfo(result.currentStatus || result.data?.currentStatus);
@@ -1031,7 +931,7 @@ const handleDeleteDoc = async (docId) => {
       const token = getAuthToken();
       
       // Convert status name to code before sending
-      const statusCode = STATUS_CODE_MAP[statusInput] || statusInput;
+      const statusCode = toStatusCode(statusInput);
       const currentYear = selectedYearId || uploadYearId || yearId || member?.year_id || member?.raw?.year_id || '';
       const submittedComment = commentsInput.trim();
       
@@ -1072,7 +972,7 @@ const handleDeleteDoc = async (docId) => {
           ...(result.data || {}),
           _id: result.data?._id || result.data?.id || `temp-${Date.now()}`,
           file_type: fileTypeInput || member.filingType || 'E-Filing',
-          status: statusInput,
+          status: statusCode,
           status_name: statusInput,
           comments: submittedComment,
           comment: submittedComment,
@@ -1296,7 +1196,7 @@ const handleDeleteDoc = async (docId) => {
             </strong>
             &nbsp;|&nbsp; File No: <strong>{profileData?.header?.file_no || member.fileNo}</strong>
             &nbsp;|&nbsp; {profileData?.header?.file_type || profileData?.header?.file_type || member.filingType}
-            &nbsp;|&nbsp; <span style={{ color: statusColor(profileData?.header?.filestatus || member.status), fontWeight: 600 }}>{profileData?.header?.filestatus || member.status}</span>
+            &nbsp;|&nbsp; <span style={{ color: statusColor(toDisplayStatus(profileData?.header?.filestatus || member.status)), fontWeight: 600 }}>{toDisplayStatus(profileData?.header?.filestatus || member.status, '—')}</span>
           </div>
           {recentFiveYears.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1458,7 +1358,7 @@ const handleDeleteDoc = async (docId) => {
               ) : (
                 <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                   <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No spouse details submitted yet</p>
-                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Member stage: <strong>{member.status || 'Basic Information Pending'}</strong></p>
+                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Member stage: <strong>{toDisplayStatus(member.raw?.filestatus || member.status) || 'Information Pending'}</strong></p>
                 </div>
               )}
             </div>
@@ -1827,209 +1727,241 @@ const handleDeleteDoc = async (docId) => {
           )}
 
           {/* ── Interview ── */}
-          {activeTab === 'interview' && (
-            <div style={{ border: '1px solid var(--border-light)', padding: '20px', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
-                <div style={{ background: '#fce7f3', color: '#be185d', padding: '9px', borderRadius: '8px', display: 'flex' }}>
-                  <MessageSquare size={20} />
+          {activeTab === 'interview' && (() => {
+            const interviewSource = profileData?.interviews ?? profileData?.interview;
+            const allInterviews = Array.isArray(interviewSource)
+              ? interviewSource
+              : (interviewSource && typeof interviewSource === 'object' && Object.keys(interviewSource).length > 0
+                  ? [interviewSource]
+                  : []);
+            // Sort by date descending so newest is first
+            const sortedInterviews = [...allInterviews].sort((a, b) => {
+              const da = new Date(a.consultation_date || a.createdAt || 0);
+              const db = new Date(b.consultation_date || b.createdAt || 0);
+              return db - da;
+            });
+            const latestInterview = sortedInterviews[0] || null;
+            const previousInterviews = sortedInterviews.slice(1);
+
+            const renderInterviewCard = (interview, label, labelColor, labelBg) => (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: labelBg, color: labelColor, border: `1px solid ${labelColor}33`, padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', marginBottom: '10px' }}>
+                  <Calendar size={13} />
+                  {label}
                 </div>
-                <div>
-                  <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Interview Scheduling Info</h4>
-                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Consultation date, time slot and status</p>
-                </div>
-              </div>
-              {loadingProfile ? (
-                <div style={{ padding: '15px', textAlign: 'center', color: '#0076a3', fontSize: '13px', fontWeight: '600' }}>
-                  <Loader2 size={18} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} />
-                  Loading interview details...
-                </div>
-              ) : profileData?.interview && Object.keys(profileData.interview).length > 0 ? (
                 <div className="table-responsive">
-                  <table className="corporate-table">
+                  <table className="corporate-table" style={{ width: '100%' }}>
                     <tbody>
                       <tr>
                         <td style={{ fontWeight: 'bold', width: '30%', color: 'var(--text-muted)' }}>Consultation Date</td>
                         <td style={{ fontWeight: '600', color: '#0f172a' }}>
-                          {profileData.interview.consultation_date ? formatDate(profileData.interview.consultation_date) : '—'}
+                          {interview.consultation_date ? formatDate(interview.consultation_date) : '—'}
                         </td>
                       </tr>
                       <tr>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>Time Slot</td>
                         <td style={{ fontWeight: '600', color: '#0f172a' }}>
-                          {profileData.interview.time_slot?.slot || '—'}
+                          {interview.time_slot?.slot || (typeof interview.time_slot === 'string' ? interview.time_slot : '—')}
                         </td>
                       </tr>
                       <tr>
                         <td style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>Interview Status</td>
                         <td>
-                          {profileData.interview.status ? (
+                          {interview.status ? (
                             <span style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #bbf7d0', padding: '4px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
-                              {profileData.interview.status}
+                              {interview.status}
                             </span>
                           ) : '—'}
                         </td>
                       </tr>
-                      {/* {profileData.interview._id && (
-                        <tr>
-                          <td style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>Interview Record ID</td>
-                          <td style={{ fontFamily: 'monospace', fontSize: '12px', color: '#64748b' }}>
-                            {profileData.interview._id}
-                          </td>
-                        </tr>
-                      )} */}
                     </tbody>
                   </table>
                 </div>
-              ) : (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                  <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No interview scheduled yet</p>
-                  <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Consultation details will appear once scheduled by the member or admin.</p>
+              </div>
+            );
+
+            return (
+              <div style={{ border: '1px solid var(--border-light)', padding: '20px', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ background: '#fce7f3', color: '#be185d', padding: '9px', borderRadius: '8px', display: 'flex' }}>
+                    <MessageSquare size={20} />
+                  </div>
+                  <div>
+                    <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Interview Scheduling Info</h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Consultation date, time slot and status</p>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
+                {loadingProfile ? (
+                  <div style={{ padding: '15px', textAlign: 'center', color: '#0076a3', fontSize: '13px', fontWeight: '600' }}>
+                    <Loader2 size={18} className="animate-spin" style={{ display: 'inline', marginRight: '6px' }} />
+                    Loading interview details...
+                  </div>
+                ) : latestInterview ? (
+                  <div>
+                    {/* Latest = Scheduled Interview */}
+                    {renderInterviewCard(latestInterview, 'Scheduled Interview', '#0369a1', '#e0f2fe')}
+
+                    {/* Previous ones = Re-scheduled Interviews */}
+                    {previousInterviews.length > 0 && (
+                      <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed #e2e8f0' }}>
+                        <h5 style={{ fontSize: '13px', fontWeight: '700', color: '#475569', margin: '0 0 12px 0' }}>Re-scheduled Interviews</h5>
+                        {previousInterviews.map((iv, idx) =>
+                          renderInterviewCard(iv, `Re-scheduled Interview ${idx + 1}`, '#b45309', '#fffbeb')
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ margin: 0, fontWeight: '600', fontSize: '13px' }}>No interview scheduled yet</p>
+                    <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#94a3b8' }}>Consultation details will appear once scheduled by the member or admin.</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── Pay ── */}
-        {activeTab === 'pay' && (
-  <div style={{ border: '1px solid var(--border-light)', padding: '20px', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
-      <div style={{ background: '#dcfce7', color: '#16a34a', padding: '9px', borderRadius: '8px', display: 'flex' }}>
-        <CreditCard size={20} />
-      </div>
-      <div>
-        <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Billing & Invoices</h4>
-        <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Payment history and invoice details</p>
-      </div>
-    </div>
+         {activeTab === 'pay' && (
+            <div style={{ border: '1px solid var(--border-light)', padding: '20px', borderRadius: 'var(--radius-sm)', background: '#fff' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #f1f5f9' }}>
+                <div style={{ background: '#dcfce7', color: '#16a34a', padding: '9px', borderRadius: '8px', display: 'flex' }}>
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h4 style={{ fontWeight: 'bold', margin: 0, fontSize: '15px', color: '#0f172a' }}>Billing & Invoices</h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748b' }}>Payment history and invoice details</p>
+                </div>
+              </div>
 
-    {/* Add Payment Form */}
-    <div style={{ marginTop: '24px', padding: '20px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-      <h5 style={{ fontWeight: 'bold', fontSize: '14px', margin: '0 0 12px 0', color: '#0f172a' }}>Make a Payment</h5>
-      {paymentSuccess && (
-        <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-          <CheckCircle size={16} /> {paymentSuccess}
-        </div>
-      )}
-      {paymentError && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px' }}>
-          ⚠️ {paymentError}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div style={{ width: '240px', flexShrink: 0 }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Amount ($)</label>
-          <input
-            type="number"
-            step="0.01"
-            min="0.01"
-            value={payAmount}
-            onChange={e => setPayAmount(e.target.value)}
-            placeholder="0.00"
-            style={{
-              width: '100%',
-              padding: '9px 12px',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontFamily: 'monospace',
-              outline: 'none',
-              boxSizing: 'border-box'
-            }}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={handleAddPayment}
-            disabled={paymentLoading}
-            style={{
-              padding: '9px 24px',
-              background: '#0076a3',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: paymentLoading ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              opacity: paymentLoading ? 0.7 : 1,
-              boxShadow: '0 2px 4px rgba(0,118,163,0.2)'
-            }}
-          >
-            {paymentLoading ? <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={16} />}
-            {paymentLoading ? 'Processing...' : 'Pay Now'}
-          </button>
-          <button
-            onClick={() => { setPayAmount(''); setPaymentError(''); }}
-            disabled={paymentLoading}
-            style={{
-              padding: '9px 20px',
-              background: '#e2e8f0',
-              color: '#475569',
-              border: '1px solid #cbd5e1',
-              borderRadius: '6px',
-              fontSize: '13px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            Reset
-          </button>
-        </div>
-      </div>
-    </div>
+              {/* Add Payment Form */}
+              <div style={{ marginTop: '24px', padding: '20px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <h5 style={{ fontWeight: 'bold', fontSize: '14px', margin: '0 0 12px 0', color: '#0f172a' }}>Make a Payment</h5>
+                {paymentSuccess && (
+                  <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <CheckCircle size={16} /> {paymentSuccess}
+                  </div>
+                )}
+                {paymentError && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px' }}>
+                    ⚠️ {paymentError}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  <div style={{ width: '240px', flexShrink: 0 }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Amount ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={payAmount}
+                      onChange={e => setPayAmount(e.target.value)}
+                      placeholder="0.00"
+                      style={{
+                        width: '100%',
+                        padding: '9px 12px',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontFamily: 'monospace',
+                        outline: 'none',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={handleAddPayment}
+                      disabled={paymentLoading}
+                      style={{
+                        padding: '9px 24px',
+                        background: '#0076a3',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: paymentLoading ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        opacity: paymentLoading ? 0.7 : 1,
+                        boxShadow: '0 2px 4px rgba(0,118,163,0.2)'
+                      }}
+                    >
+                      {paymentLoading ? <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={16} />}
+                      {paymentLoading ? 'Processing...' : 'Pay Now'}
+                    </button>
+                    <button
+                      onClick={() => { setPayAmount(''); setPaymentError(''); }}
+                      disabled={paymentLoading}
+                      style={{
+                        padding: '9px 20px',
+                        background: '#e2e8f0',
+                        color: '#475569',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-    {/* Payment History Table */}
-    <div className="table-responsive" style={{ marginTop: '24px' }}>
-      <h5 style={{ fontWeight: 'bold', fontSize: '14px', margin: '0 0 12px 0', color: '#0f172a' }}>
-        Payment History {loadingPaymentHistory && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', marginLeft: '8px' }} />}
-      </h5>
-      {paymentHistory.length === 0 ? (
-        <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>No payments recorded yet.</p>
-      ) : (
-        <table className="corporate-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-          <thead>
-            <tr>
-              <th>Sl.No</th>
-              <th>Amount</th>
-              <th>Paid Amount</th>
-              <th>Year</th>
-              <th>Status</th>
-              <th>Payment Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paymentHistory.map((p, idx) => (
-              <tr key={p._id}>
-                <td>{idx + 1}</td>
-                <td>${p.amount}</td>
-                <td>${p.paid_amount || 0}</td>
-                <td>{p.year_id?.name || p.year || '—'}</td>
-                <td>
-                  <span style={{
-                    padding: '4px 10px',
-                    borderRadius: '12px',
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    background: p.status === 1 ? '#dcfce7' : '#fef3c7',
-                    color: p.status === 1 ? '#15803d' : '#92400e',
-                  }}>
-                    {p.status === 1 ? 'Paid' : 'Pending'}
-                  </span>
-                </td>
-                <td>{p.createdAt ? formatDate(p.createdAt) : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  </div>
-)}
+              {/* Payment History Table */}
+              <div className="table-responsive" style={{ marginTop: '24px' }}>
+                <h5 style={{ fontWeight: 'bold', fontSize: '14px', margin: '0 0 12px 0', color: '#0f172a' }}>
+                  Payment History {loadingPaymentHistory && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', marginLeft: '8px' }} />}
+                </h5>
+                {paymentHistory.length === 0 ? (
+                  <p style={{ color: '#64748b', textAlign: 'center', padding: '20px' }}>No payments recorded yet.</p>
+                ) : (
+                  <table className="corporate-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                    <thead>
+                      <tr>
+                        <th>Sl.No</th>
+                        <th>Amount</th>
+                        <th>Paid Amount</th>
+                        <th>Year</th>
+                        <th>Status</th>
+                        <th>Payment Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paymentHistory.map((p, idx) => (
+                        <tr key={p._id}>
+                          <td>{idx + 1}</td>
+                          <td>${p.amount}</td>
+                          <td>${p.paid_amount || 0}</td>
+                          <td>{p.year_id?.name || p.year || '—'}</td>
+                          <td>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '12px',
+                              fontSize: '11px',
+                              fontWeight: '600',
+                              background: p.status === 1 ? '#dcfce7' : '#fef3c7',
+                              color: p.status === 1 ? '#15803d' : '#92400e',
+                            }}>
+                              {p.status === 1 ? 'Paid' : 'Pending'}
+                            </span>
+                          </td>
+                          <td>{p.createdAt ? formatDate(p.createdAt) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Upload ── */}
           {activeTab === 'upload' && (
@@ -2405,7 +2337,7 @@ const handleDeleteDoc = async (docId) => {
                     onClick={() => {
                       setCommentsInput('');
                       setStatusInput(
-                        CODE_TO_DISPLAY[member.raw?.filestatus || ''] || member.status || 'Registered Users'
+                        toDisplayStatus(member.raw?.filestatus || member.status) || 'Registered Users'
                       );
                       setFileTypeInput(member.filingType || 'E-Filing');
                       setFileInfoErrorMsg('');
@@ -2502,15 +2434,16 @@ const handleDeleteDoc = async (docId) => {
                             const MAX_LEN = 100;
                             const isLong = fullComment.length > MAX_LEN;
                             const preview = isLong ? `${fullComment.slice(0, MAX_LEN)}...` : (fullComment || '—');
-                            const displayStatus = CODE_TO_DISPLAY[c.status] || c.status_name || c.status || '—';
+                            const displayStatus = toDisplayStatus(c.status || c.status_name, '—');
+                            const isCompletion = toStatusCode(c.status || c.status_name) === 'EFA_FC';
                             return (
                               <tr key={c._id || i}>
                                 <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>{fileInfoStartIndex + i + 1}</td>
                                 <td style={{ fontWeight: '500', whiteSpace: 'nowrap' }}>{c.file_type || member.filingType || '—'}</td>
                                 <td style={{ whiteSpace: 'nowrap' }}>
                                   <span style={{
-                                    background: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff',
-                                    color: (c.status?.includes('EFA') || displayStatus.includes('Complete')) ? '#047857' : '#0369a1',
+                                    background: (isCompletion || displayStatus.includes('Complete')) ? '#ecfdf5' : '#f0f9ff',
+                                    color: (isCompletion || displayStatus.includes('Complete')) ? '#047857' : '#0369a1',
                                     border: '1px solid #bae6fd',
                                     padding: '3px 8px',
                                     borderRadius: '12px',
@@ -2920,7 +2853,7 @@ export default function MemberTableLayout({
             filingType: item.file_type || item.file_type || 'E-Filing',
             email: item.email || '',
             regDate: item.date_created ? formatDate(item.date_created, '') : '',
-            status: item.filestatus_name || 'Registered',
+            status: toDisplayStatus(item.filestatus || item.filestatus_name) || 'Registered Users',
             statusDate: item.date_updated ? formatDate(item.date_updated, '') : '',
             year: item.year?.name ? String(item.year.name) : numericYear,
             raw: item

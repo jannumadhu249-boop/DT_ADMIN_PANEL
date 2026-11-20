@@ -43,6 +43,12 @@ export default function ReferralsReport({ selectedYear, setSelectedYear }) {
   const [selectedReferrer, setSelectedReferrer] = useState(null);
   const [viewListLoading, setViewListLoading] = useState(false);
 
+  // ---------- Payment state ----------
+  const [payAmount, setPayAmount] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState('');
+  const [paymentError, setPaymentError] = useState('');
+
   // ---------- Derived numeric year ----------
   const numericYear = selectedYear ? selectedYear.replace('TY', '') : '2026';
 
@@ -201,64 +207,56 @@ export default function ReferralsReport({ selectedYear, setSelectedYear }) {
     }
   };
 
-  const fetchMemberReferrals = async (memberId) => {
+  const fetchMemberReferrals = async (memberId, memberName) => {
     setViewListLoading(true);
     try {
-      const member = referralsData.find(r => r.memberId === memberId);
-      let rawRefs = member?.cachedRefs;
-      let summaryData = member?.summary;
-
-      if (!rawRefs || rawRefs.length === 0) {
-        const token = getAuthToken();
-        const response = await fetch(`${URLS.ViewReferalMember}${memberId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const result = await response.json();
-        if (result.success && Array.isArray(result.data)) {
-          rawRefs = result.data;
-          summaryData = result.summary;
-        } else {
-          throw new Error(result.message || 'Failed to fetch member referrals.');
+      const token = getAuthToken();
+      const response = await fetch(`${URLS.ViewReferalMember}${memberId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
         }
-      }
-
-      // Filter by selected year
-      const yearFilteredRefs = numericYear
-        ? rawRefs.filter(item => !item.year?.name || String(item.year.name) === String(numericYear))
-        : rawRefs;
-
-      // Sort latest referrals on top (DESC)
-      const sortedRefs = [...yearFilteredRefs].sort((a, b) => {
-        const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return timeB - timeA;
       });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (result.success && Array.isArray(result.data)) {
+        const rawRefs = result.data;
+        const summaryData = result.summary || {};
+        const member = referralsData.find(r => r.memberId === memberId);
 
-      const referrer = {
-        name: member?.name || '—',
-        referralsCount: sortedRefs.length,
-        dollarsEarned: summaryData?.totalAmount ?? (member?.dollarsEarned || 0),
-        paidAmount: summaryData?.paidAmount ?? 0,
-        balanceAmount: summaryData?.balanceAmount ?? (member?.balance || 0),
-        referredMembers: sortedRefs.map(item => ({
-          _id: item._id, // referral id
-          name: item.friend_name || '—',
-          email: item.friend_email || '—',
-          mobile: item.friend_mobile || '—',
-          year: item.year?.name || numericYear || '—',
-          amount: item.amount || 0,
-          paidAmount: item.paid_amount || 0,
-          status: item.status || '—',
-          createdAt: item.createdAt || '—'
-        }))
-      };
-      setSelectedReferrer(referrer);
-      setShowViewListModal(true);
+        // Sort latest referrals on top (DESC)
+        const sortedRefs = [...rawRefs].sort((a, b) => {
+          const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return timeB - timeA;
+        });
+
+        const referrer = {
+          name: memberName || member?.name || '—',
+          referralsCount: sortedRefs.length,
+          dollarsEarned: summaryData?.totalAmount ?? (member?.dollarsEarned || 0),
+          paidAmount: summaryData?.paidAmount ?? 0,
+          balanceAmount: summaryData?.balanceAmount ?? (member?.balance || 0),
+          referredMembers: sortedRefs.map(item => ({
+            _id: item._id,
+            friend_name: item.friend_name || '—',
+            name: item.friend_name || '—',
+            friend_email: item.friend_email || '—',
+            email: item.friend_email || '—',
+            friend_mobile: item.friend_mobile || '—',
+            mobile: item.friend_mobile || '—',
+            year: (typeof item.year === 'object' && item.year !== null) ? (item.year.name || '—') : (item.year || '—'),
+            amount: item.amount ?? 0,
+            paidAmount: item.paid_amount ?? 0,
+            status: item.status || '—',
+            createdAt: item.createdAt || '—'
+          }))
+        };
+        setSelectedReferrer(referrer);
+      } else {
+        throw new Error(result.message || 'Failed to fetch member referrals.');
+      }
     } catch (err) {
       setError(err.message || 'Network error.');
     } finally {
@@ -392,19 +390,67 @@ export default function ReferralsReport({ selectedYear, setSelectedYear }) {
     fetchReferrals(1, '', '', '', numericYear);
   };
 
+  const handleAddPayment = () => {
+    const amount = parseFloat(payAmount);
+    if (!payAmount || Number.isNaN(amount) || amount <= 0) {
+      setPaymentSuccess('');
+      setPaymentError('Please enter a valid amount.');
+      return;
+    }
+    const balance = Number(selectedReferrer?.balanceAmount || 0);
+    if (balance > 0 && amount > balance) {
+      setPaymentSuccess('');
+      setPaymentError(`Amount cannot exceed the pending balance of $${balance}.`);
+      return;
+    }
+
+    setPaymentError('');
+    setPaymentLoading(true);
+
+    // url.jsx has no referral payout endpoint yet, so the payment is applied to the
+    // open referrer summary. Replace this with the payout POST + refetch once it exists.
+    setSelectedReferrer(prev => {
+      if (!prev) return prev;
+      const nextPaid = Math.round((Number(prev.paidAmount || 0) + amount) * 100) / 100;
+      const nextBalance = Math.max(0, Math.round((Number(prev.balanceAmount || 0) - amount) * 100) / 100);
+      return { ...prev, paidAmount: nextPaid, balanceAmount: nextBalance };
+    });
+    setPaymentSuccess(`Payment of $${amount.toFixed(2)} recorded for ${selectedReferrer?.name || 'referrer'}.`);
+    setPayAmount('');
+    setPaymentLoading(false);
+  };
+
   const handleViewList = (referrer) => {
-    fetchMemberReferrals(referrer.memberId);
+    setSelectedReferrer({
+      name: referrer.name || '—',
+      referralsCount: referrer.referralsCount || 0,
+      dollarsEarned: referrer.dollarsEarned || 0,
+      paidAmount: 0,
+      balanceAmount: referrer.balance || 0,
+      referredMembers: []
+    });
+    setShowViewListModal(true);
+    setPayAmount('');
+    setPaymentSuccess('');
+    setPaymentError('');
+    fetchMemberReferrals(referrer.memberId, referrer.name);
   };
 
   const handleCloseViewList = () => {
     setShowViewListModal(false);
     setSelectedReferrer(null);
+    setPayAmount('');
+    setPaymentSuccess('');
+    setPaymentError('');
   };
 
   const getMaskedEmail = (email) => {
-    if (!email) return '';
+    if (!email) return '—';
     const parts = email.split('@');
-    return 'XXXXXXXXXX.' + (parts[parts.length - 1]?.split('.').pop() || '');
+    if (parts.length > 1) {
+      return `XXXXXXXXXX@${parts[1]}`;
+    }
+    return `XXXXXXXXXX.${email.split('.').pop()}`;
   };
 
   // Client-side search matching by name or email
@@ -457,6 +503,13 @@ export default function ReferralsReport({ selectedYear, setSelectedYear }) {
       handleViewList={handleViewList}
       handleCloseViewList={handleCloseViewList}
       viewListLoading={viewListLoading}
+      // Payment
+      payAmount={payAmount}
+      setPayAmount={setPayAmount}
+      paymentLoading={paymentLoading}
+      paymentSuccess={paymentSuccess}
+      paymentError={paymentError}
+      handleAddPayment={handleAddPayment}
     />
   );
 }

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Eye, Shield, X, CheckCircle, Clock, RefreshCw, Loader2, RotateCcw, Calendar } from 'lucide-react';
+import { Eye, Shield, X, CheckCircle, Clock, RefreshCw, Loader2, RotateCcw, Calendar, CreditCard } from 'lucide-react';
 import { formatDate } from '../../utils/dateUtils';
 import Pagination from '../../components/Pagination';
 
@@ -29,7 +29,11 @@ export default function ReferralsReportView({
   selectedReferrer,
   handleViewList,
   handleCloseViewList,
-  viewListLoading
+  viewListLoading,
+  // Payment
+  payAmount, setPayAmount,
+  paymentLoading, paymentSuccess, paymentError,
+  handleAddPayment
 }) {
   const refs = Array.from({ length: 6 }, () => useRef());
 
@@ -154,7 +158,7 @@ export default function ReferralsReportView({
                           '—'
                         )}
                       </td> */}
-                      <td style={{ textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center', display: 'flex', gap: '5px', alignItems: 'center', justifyContent: 'center' }}>
                         <button
                           type="button"
                           className="btn"
@@ -163,6 +167,14 @@ export default function ReferralsReportView({
                         >
                           View List
                         </button>
+                        {/* <button
+                          type="button"
+                          className="btn"
+                          style={{ backgroundColor: '#5cb85c', color: '#ffffff', padding: '4px 10px', fontSize: '12px', borderRadius: '4px' }}
+                          onClick={() => handleViewList(ref)}
+                        >
+                          Pay
+                        </button> */}
                       </td>
                     </tr>
                   );
@@ -319,13 +331,17 @@ export default function ReferralsReportView({
                           selectedReferrer.referredMembers.map((member, idx) => {
                             const emailKey = `viewlist_${member._id}_email`;
                             const isUnmasked = !!unmaskedFields[emailKey];
+                            const memberName = member.friend_name || member.name || '—';
+                            const memberEmail = member.friend_email || member.email || '—';
+                            const memberMobile = member.friend_mobile || member.mobile || '—';
+                            const memberYear = (typeof member.year === 'object' && member.year !== null) ? (member.year.name || '—') : (member.year || '—');
                             return (
                               <tr key={member._id || idx} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 1 ? '#f8fafc' : '#fff' }}>
                                 <td style={{ padding: '12px', color: '#64748b' }}>{idx + 1}</td>
-                                <td style={{ padding: '12px', color: '#334155', fontWeight: '500' }}>{member.name}</td>
+                                <td style={{ padding: '12px', color: '#334155', fontWeight: '500' }}>{memberName}</td>
                                 <td style={{ padding: '12px', color: '#334155' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span>{isUnmasked ? member.email : getMaskedEmail(member.email)}</span>
+                                    <span>{isUnmasked ? memberEmail : getMaskedEmail(memberEmail)}</span>
                                     <button
                                       type="button"
                                       className="email-toggle-eye-btn"
@@ -336,12 +352,12 @@ export default function ReferralsReportView({
                                     </button>
                                   </div>
                                 </td>
-                                <td style={{ padding: '12px', color: '#334155' }}>{member.mobile}</td>
-                                <td style={{ padding: '12px', color: '#334155' }}>{member.year}</td>
+                                <td style={{ padding: '12px', color: '#334155' }}>{memberMobile}</td>
+                                <td style={{ padding: '12px', color: '#334155' }}>{memberYear}</td>
                                 <td style={{ padding: '12px', color: '#334155' }}>
                                   {formatDate(member.createdAt)}
                                 </td>
-                                <td style={{ padding: '12px', color: '#334155' }}>${member.amount}</td>
+                                <td style={{ padding: '12px', color: '#334155' }}>${member.amount ?? 0}</td>
                               </tr>
                             );
                           })
@@ -367,6 +383,89 @@ export default function ReferralsReportView({
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: '600', color: '#334155', marginTop: '8px' }}>
                       <span>Balance Amount</span>
                       <span>${selectedReferrer.balanceAmount || 0}</span>
+                    </div>
+                  </div>
+
+                  {/* Add Payment Form */}
+                  <div style={{ marginTop: '16px', padding: '20px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <h5 style={{ fontWeight: 'bold', fontSize: '14px', margin: '0 0 12px 0', color: '#0f172a' }}>Make a Payment</h5>
+                    {paymentSuccess && (
+                      <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                        <CheckCircle size={16} /> {paymentSuccess}
+                      </div>
+                    )}
+                    {paymentError && (
+                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', padding: '10px 14px', fontSize: '13px', marginBottom: '12px' }}>
+                        ⚠️ {paymentError}
+                      </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={{ width: '240px', flexShrink: 0 }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#334155', marginBottom: '4px' }}>Amount ($)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={payAmount}
+                          onChange={e => setPayAmount(e.target.value)}
+                          placeholder="0.00"
+                          style={{
+                            width: '100%',
+                            padding: '9px 12px',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            fontFamily: 'monospace',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={handleAddPayment}
+                          disabled={paymentLoading}
+                          style={{
+                            padding: '9px 24px',
+                            background: '#0076a3',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: paymentLoading ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            opacity: paymentLoading ? 0.7 : 1,
+                            boxShadow: '0 2px 4px rgba(0,118,163,0.2)'
+                          }}
+                        >
+                          {paymentLoading ? <Loader2 size={16} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <CreditCard size={16} />}
+                          {paymentLoading ? 'Processing...' : 'Pay Now'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setPayAmount(''); setPaymentError(''); }}
+                          disabled={paymentLoading}
+                          style={{
+                            padding: '9px 20px',
+                            background: '#e2e8f0',
+                            color: '#475569',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '6px',
+                            fontSize: '13px',
+                            fontWeight: '600',
+                            cursor: paymentLoading ? 'not-allowed' : 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                        >
+                          Reset
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </>
