@@ -22,6 +22,7 @@ export default function QueryList() {
   // State for API data
   const [queries, setQueries] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -48,8 +49,17 @@ export default function QueryList() {
 
       const result = await response.json();
       if (result.success) {
-        setQueries(result.data);
-        setTotalRecords(result.totalRecords);
+        // API returns { count, pagination: { totalRecords, currentPage, limit, totalPages }, data }
+        const pageInfo = result.pagination || {};
+        const total = Number(pageInfo.totalRecords ?? result.totalRecords ?? result.count ?? 0);
+        const pages = Number(pageInfo.totalPages ?? (Math.ceil(total / limit) || 0));
+
+        setQueries(Array.isArray(result.data) ? result.data : []);
+        setTotalRecords(total);
+        setTotalPages(pages);
+
+        // Keep the page in range when the last row of the final page is replied/removed
+        if (pages > 0 && currentPage > pages) setCurrentPage(pages);
       } else {
         setError('Failed to load queries.');
       }
@@ -107,6 +117,8 @@ export default function QueryList() {
           [queryId]: '',
         }));
         fetchQueries();
+        // Let the sidebar badge know a query moved to Resolved
+        window.dispatchEvent(new Event('admin-query-counts-refresh'));
       } else {
         alert('Failed to send reply. Please try again.');
       }
@@ -114,31 +126,6 @@ export default function QueryList() {
       console.error('Reply error:', err);
       alert('An error occurred while sending the reply.');
     }
-  };
-
-  // Calculate total pages for pagination
-  const totalPages = Math.ceil(totalRecords / limit);
-
-  // Render page numbers
-  const renderPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(totalPages, start + maxVisible - 1);
-    if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1);
-
-    for (let i = start; i <= end; i++) {
-      pages.push(
-        <button
-          key={i}
-          className={`page-link-btn ${currentPage === i ? 'active' : ''}`}
-          onClick={() => setCurrentPage(i)}
-        >
-          {i}
-        </button>
-      );
-    }
-    return pages;
   };
 
   return (

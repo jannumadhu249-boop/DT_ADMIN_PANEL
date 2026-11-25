@@ -8,6 +8,7 @@ import {
 import { URLS } from '../../url';
 import { formatDate } from '../../utils/dateUtils';
 import Pagination from '../../components/Pagination';
+import CommentCell from '../../components/CommentCell';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -2033,9 +2034,7 @@ export default function JustUploadedDocsView({
                         const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
                         const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
                         return paginatedStatusHistory.map((c, i) => {
-                          const MAX_COMMENT_LENGTH = 100;
-                          const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
-                          const isTruncated = comment.length > MAX_COMMENT_LENGTH;
+                          const fullComment = (c.comments || c.comment || c.description || c.notes || '').trim();
                           const displayStatus = c.status_name || CODE_TO_STATUS_NAME[c.status] || c.status || '—';
                           
                           return (
@@ -2047,32 +2046,8 @@ export default function JustUploadedDocsView({
                                   {displayStatus}
                                 </span>
                               </td>
-                              <td style={{ color: '#334155', maxWidth: '350px' }}>
-                                {isTruncated ? (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-                                      {comment.substring(0, MAX_COMMENT_LENGTH)}...
-                                    </span>
-                                    <button
-                                      onClick={() => setCommentPopup({ text: comment })}
-                                      style={{
-                                        background: '#e0f2fe',
-                                        border: '1px solid #bae6fd',
-                                        color: '#0369a1',
-                                        padding: '3px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap'
-                                      }}
-                                    >
-                                      View
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <span>{comment}</span>
-                                )}
+                              <td style={{ color: '#334155', maxWidth: '350px', overflow: 'hidden', verticalAlign: 'middle' }}>
+                                <CommentCell text={fullComment} onView={(text) => setCommentPopup({ text })} />
                               </td>
                               <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
                               <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>

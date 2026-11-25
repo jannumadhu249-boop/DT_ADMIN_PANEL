@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import { formatDate } from '../utils/dateUtils';
 import { getUserRole } from '../utils/permissions';
 import Pagination from './Pagination';
+import CommentCell from './CommentCell';
 import { PasswordPromptModal } from './PasswordModals';
 
 // DateTime formatting utility - MM/DD/YYYY HH:MM
@@ -843,7 +844,7 @@ const handleDeleteDoc = async (docId) => {
   // File Info (Member Status) State & API Handlers
   const [statusHistory, setStatusHistory] = useState([]);
   const [fileInfoPage, setFileInfoPage] = useState(1);
-  const fileInfoLimit = 10;
+  const fileInfoLimit = 25;
   const [currentFileInfo, setCurrentFileInfo] = useState(null);
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [isSubmittingFileInfo, setIsSubmittingFileInfo] = useState(false);
@@ -2419,7 +2420,7 @@ const handleDeleteDoc = async (docId) => {
                         <th style={{ width: '70px', textAlign: 'center' }}>S.No</th>
                         <th style={{ width: '150px', whiteSpace: 'nowrap' }}>Filing Type</th>
                         <th style={{ width: '190px', whiteSpace: 'nowrap' }}>Status</th>
-                        <th style={{ minWidth: '250px', maxWidth: 'nowrap' }}>Comments</th>
+                        <th style={{ minWidth: '250px' }}>Comments</th>
                         <th style={{ width: '150px', whiteSpace: 'nowrap' }}>Created By</th>
                         <th style={{ width: '180px', whiteSpace: 'nowrap' }}>Date & Time</th>
                       </tr>
@@ -2431,9 +2432,6 @@ const handleDeleteDoc = async (docId) => {
                           const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
                           return paginatedStatusHistory.map((c, i) => {
                             const fullComment = (c.comments || c.comment || c.description || c.notes || '').trim();
-                            const MAX_LEN = 100;
-                            const isLong = fullComment.length > MAX_LEN;
-                            const preview = isLong ? `${fullComment.slice(0, MAX_LEN)}...` : (fullComment || '—');
                             const displayStatus = toDisplayStatus(c.status || c.status_name, '—');
                             const isCompletion = toStatusCode(c.status || c.status_name) === 'EFA_FC';
                             return (
@@ -2454,57 +2452,9 @@ const handleDeleteDoc = async (docId) => {
                                     {displayStatus}
                                   </span>
                                 </td>
-                                <td style={{ color: '#334155', maxWidth: '240px', overflow: 'hidden', verticalAlign: 'middle' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span
-                                      style={{
-                                      fontSize: '13px',
-                                      lineHeight: '1.4',
-                                      overflow: 'hidden',
-                                      textOverflow: 'ellipsis',
-                                      whiteSpace: 'nowrap',
-                                      maxWidth: isLong ? '140px' : '220px',
-                                      display: 'inline-block',
-                                      verticalAlign: 'middle',
-                                      cursor: isLong ? 'pointer' : 'default'
-                                    }}
-                                    title={isLong ? "Click to view full comment" : (fullComment || '')}
-                                    onClick={() => isLong && setCommentPopup({ text: fullComment })}
-                                  >
-                                    {preview}
-                                  </span>
-                                  {isLong && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setCommentPopup({ text: fullComment })}
-                                      style={{
-                                        border: '1px solid #bae6fd',
-                                        background: '#f0f9ff',
-                                        color: '#0284c7',
-                                        borderRadius: '4px',
-                                        padding: '2px 8px',
-                                        fontSize: '11px',
-                                        fontWeight: '600',
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
-                                        flexShrink: 0,
-                                        lineHeight: '1.2'
-                                      }}
-                                      onMouseEnter={e => {
-                                        e.currentTarget.style.background = '#0284c7';
-                                        e.currentTarget.style.color = '#ffffff';
-                                      }}
-                                      onMouseLeave={e => {
-                                        e.currentTarget.style.background = '#f0f9ff';
-                                        e.currentTarget.style.color = '#0284c7';
-                                      }}
-                                      title="View full comment"
-                                    >
-                                      View
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
+                                <td style={{ color: '#334155', maxWidth: '260px', overflow: 'hidden', verticalAlign: 'middle' }}>
+                                  <CommentCell text={fullComment} onView={(text) => setCommentPopup({ text })} />
+                                </td>
                               <td style={{ fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>{c.createdBy || c.created_by || 'Admin'}</td>
                               <td style={{ color: 'var(--text-muted)', fontSize: '12px', whiteSpace: 'nowrap' }}>
                                 {formatDateTime(c.createdAt || c.created_at || c.dateTime || c.date || c.updatedAt)}
@@ -2711,7 +2661,7 @@ export default function MemberTableLayout({
 
   const [otpOpen, setOtpOpen] = useState(false);
   const [pendingMemberId, setPendingMemberId] = useState(null);
-  const [commentsHistory, setCommentsHistory] = useState(INITIAL_COMMENTS || {});
+  const [commentsHistory, setCommentsHistory] = useState({});
 
   // Password Protection State
   const [passwordPromptOpen, setPasswordPromptOpen] = useState(false);

@@ -11,6 +11,7 @@ import { URLS } from '../url';
 import { formatDate } from '../utils/dateUtils';
 import { WORKFLOW_STATUSES, toDisplayStatus, toStatusCode } from '../utils/statusUtils';
 import Pagination from '../components/Pagination';
+import CommentCell from '../components/CommentCell';
 
 const getAuthToken = () => {
   const keys = ['authToken', 'token', 'adminToken', 'accessToken', 'jwt'];
@@ -496,7 +497,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
   // ---- File Info state ----
   const [statusHistory, setStatusHistory] = useState([]);
   const [fileInfoPage, setFileInfoPage] = useState(1);
-  const fileInfoLimit = 10;
+  const fileInfoLimit = 25;
   const [loadingFileInfo, setLoadingFileInfo] = useState(false);
   const [fileTypeInput, setFileTypeInput] = useState('E-Filing');
   const [statusInput, setStatusInput] = useState(
@@ -524,6 +525,13 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
   const [loadingAdminDocs, setLoadingAdminDocs] = useState(false);
 
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // ---- Scroll handling (table <-> detail view swap in the same scroll container) ----
+  const viewRootRef = useRef(null);
+  const tableScrollTopRef = useRef(0);
+
+  const getScrollContainer = () =>
+    viewRootRef.current?.closest('.main-viewport') || document.querySelector('.main-viewport');
 
   // ---- Bank modal ----
   const [bankModalOpen, setBankModalOpen] = useState(false);
@@ -1168,6 +1176,10 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
   const getMaskedContact = () => 'XXXXXXXXXX';
 
   const handleSelectMember = (client) => {
+    // Remember where the table was scrolled so Back can restore it
+    const scroller = getScrollContainer();
+    if (scroller) tableScrollTopRef.current = scroller.scrollTop;
+
     setSelectedMember(client);
     const yId = client.year_id || currentYearId;
     setDetailYearId(yId);
@@ -1217,6 +1229,22 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
 
   // ---- Effects ----
   useEffect(() => { fetchYears(); }, []);
+
+  // The table and the detail view share one scroller (.main-viewport). Without this,
+  // opening a member keeps the table's scroll offset and the detail view renders mid-page.
+  const selectedMemberId = selectedMember?._id;
+  useEffect(() => {
+    if (!selectedMemberId) return;
+    const resetScroll = () => {
+      const scroller = getScrollContainer();
+      if (scroller) scroller.scrollTop = 0;
+      else window.scrollTo(0, 0);
+    };
+    resetScroll();
+    // Re-apply once after layout, because the profile data loads async and changes height
+    const raf = requestAnimationFrame(resetScroll);
+    return () => cancelAnimationFrame(raf);
+  }, [selectedMemberId]);
   useEffect(() => {
     if (years.length > 0 && currentYearId) {
       fetchClients(1, pagination.limit, submittedSearch.idType, submittedSearch.term, currentYearId);
@@ -1252,13 +1280,25 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
       ? counts[activeStatusCode]
       : (typeof counts.all === 'number' ? counts.all : filteredTotalRecords));
 
+  const handleBackToList = () => {
+    setSelectedMember(null);
+    setActiveDetailTab('personal');
+    setProfileData(null);
+    setDetailYearId('');
+    // Restore the table's previous scroll position
+    requestAnimationFrame(() => {
+      const scroller = getScrollContainer();
+      if (scroller) scroller.scrollTop = tableScrollTopRef.current;
+    });
+  };
+
   // ---- Render ----
   return (
-    <div className="content-card">
+    <div className="content-card" ref={viewRootRef}>
       {selectedMember ? (
         // ==================== DETAIL VIEW ====================
         <div className="detail-view-container" style={{ animation: 'fadeIn 0.2s ease-out' }}>
-          <button className="detail-back-btn" onClick={() => { setSelectedMember(null); setActiveDetailTab('personal'); setProfileData(null); setDetailYearId(''); }}>
+          <button className="detail-back-btn" onClick={handleBackToList}>
             <ChevronLeft size={16} style={{ display: 'inline', marginRight: '4px' }} /> Back
           </button>
 
@@ -2005,9 +2045,7 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                           const fileInfoStartIndex = (fileInfoPage - 1) * fileInfoLimit;
                           const paginatedStatusHistory = statusHistory.slice(fileInfoStartIndex, fileInfoStartIndex + fileInfoLimit);
                           return paginatedStatusHistory.map((c, i) => {
-                            const MAX_COMMENT_LENGTH = 100;
-                            const comment = (c.comments || c.comment || c.description || c.notes || '').trim() || '—';
-                            const isTruncated = comment.length > MAX_COMMENT_LENGTH;
+                            const fullComment = (c.comments || c.comment || c.description || c.notes || '').trim();
                             const displayStatus = toDisplayStatus(c.status || c.status_name, '—');
                             const isCompletion = toStatusCode(c.status || c.status_name) === 'EFA_FC';
 
@@ -2020,32 +2058,8 @@ export default function ClientSearch({ member, selectedYear, setSelectedYear, st
                                     {displayStatus}
                                   </span>
                                 </td>
-                                <td style={{ color: '#334155', maxWidth: '350px' }}>
-                                  {isTruncated ? (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '250px' }}>
-                                        {comment.substring(0, MAX_COMMENT_LENGTH)}...
-                                      </span>
-                                      <button
-                                        onClick={() => setCommentPopup({ text: comment })}
-                                        style={{
-                                          background: '#e0f2fe',
-                                          border: '1px solid #bae6fd',
-                                          color: '#0369a1',
-                                          padding: '3px 8px',
-                                          borderRadius: '4px',
-                                          fontSize: '11px',
-                                          fontWeight: '600',
-                                          cursor: 'pointer',
-                                          whiteSpace: 'nowrap'
-                                        }}
-                                      >
-                                        View
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span>{comment}</span>
-                                  )}
+                                <td style={{ color: '#334155', maxWidth: '350px', overflow: 'hidden', verticalAlign: 'middle' }}>
+                                  <CommentCell text={fullComment} onView={(text) => setCommentPopup({ text })} />
                                 </td>
                                 <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdBy || c.created_by || 'Admin'}</td>
                                 <td style={{ fontSize: '12px', color: '#64748b' }}>{c.createdAt || c.created_at || c.dateTime ? formatDate(c.createdAt || c.created_at || c.dateTime) : '—'}</td>

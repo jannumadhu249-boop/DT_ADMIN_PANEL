@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Eye, EyeOff, Shield, X, CheckCircle, Clock, RefreshCw, Loader2, Edit3 } from 'lucide-react';
 import { URLS } from '../url';
 import { formatDate } from '../utils/dateUtils';
+import { getUserRole } from '../utils/permissions';
 import Pagination from '../components/Pagination';
 
 // ---------- Helper: get auth token ----------
@@ -18,6 +19,10 @@ const getAuthToken = () => {
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function RefereeReport() {
+  // Role-Based Access Control: export is restricted to Super Admin only
+  const userRole = getUserRole(); // 'super_admin' | 'admin' | 'other'
+  const canExport = userRole === 'super_admin';
+
   // ---------- Filter state ----------
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedYear, setSelectedYear] = useState('');
@@ -150,6 +155,7 @@ export default function RefereeReport() {
 
   // ---------- Export ----------
   const handleExport = async () => {
+    if (!canExport) return;
     try {
       const token = getAuthToken();
       const body = {
@@ -469,12 +475,14 @@ export default function RefereeReport() {
             ))}
           </select>
 
-          <button
-            onClick={handleExport}
-            style={{ padding: '6px 14px', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '13px', fontWeight: '500', color: '#334155', cursor: 'pointer' }}
-          >
-            Export to Excel
-          </button>
+          {canExport && (
+            <button
+              onClick={handleExport}
+              style={{ padding: '6px 14px', background: '#e2e8f0', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '13px', fontWeight: '500', color: '#334155', cursor: 'pointer' }}
+            >
+              Export to Excel
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

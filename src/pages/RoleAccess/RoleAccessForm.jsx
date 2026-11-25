@@ -64,6 +64,7 @@ const MODULE_CONFIG = [
       { name: 'Referrals', permissions: ['view'] },
       { name: 'Query List', permissions: ['view'] },
       { name: 'Client Stage', permissions: ['view'] },
+      { name: 'Messages', permissions: ['view'] },
       { name: 'Just Uploaded Docs', permissions: ['view'] },
       { name: 'Callback Requests', permissions: ['view'] },
       { name: 'Mailgun', permissions: ['view'] },

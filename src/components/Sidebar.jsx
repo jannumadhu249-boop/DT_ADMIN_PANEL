@@ -13,7 +13,6 @@ import {
   Search, PhoneCall, FileUp, Send, Mail, NotebookPen, Settings, Home, MessageCircle
 } from 'lucide-react';
 import { URLS } from '../url';
-import { INITIAL_MEMBERS } from '../data/mockMembers';
 import { hasViewPermission } from '../utils/permissions';
 import { ChangePasswordModal } from './PasswordModals';
 
@@ -56,7 +55,7 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
       setLoadingYear(true);
       setYearError('');
 
-      // Try to get the token from storage (same as Navbar)
+      // Try to get the token from storage
       const token = getAuthToken();
 
       if (!token) {
@@ -181,6 +180,9 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
 
   const [apiCounts, setApiCounts] = useState(null);
   const [justUploadedCount, setJustUploadedCount] = useState(0);
+  // Query List / Messages badges: null = still loading (badge hidden), number = real API count
+  const [queryListCount, setQueryListCount] = useState(null);
+  const [messagesCount, setMessagesCount] = useState(null);
 
   // --- Fetch live sidebar counts from API ---
   useEffect(() => {
@@ -255,6 +257,58 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
     return () => { isMounted = false; };
   }, [currentYearData]);
 
+  // --- Fetch Query List / Messages counts for the sidebar badges ---
+  // Both endpoints return { count, pagination: { totalRecords, ... }, data };
+  // limit is 1 because only the totals are needed here.
+  useEffect(() => {
+    let isMounted = true;
+    const token = getAuthToken();
+    if (!token) return undefined;
+
+    const fetchCount = async (endpoint) => {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ page: 1, limit: 1, search: '' })
+        });
+        if (!res.ok) return null;
+        const result = await res.json();
+        if (!result?.success) return null;
+        // `count` is the value intended for the sidebar badge; pagination is the fallback
+        const total = result.count ?? result.pagination?.totalRecords ?? result.totalRecords;
+        return total === undefined || total === null ? null : Number(total);
+      } catch (err) {
+        console.warn('Sidebar query/message count fetch error:', err);
+        return null;
+      }
+    };
+
+    const loadCounts = async () => {
+      const [queryCount, messageCount] = await Promise.all([
+        fetchCount(URLS.GetQueryList),
+        fetchCount(URLS.GetQueryMessages)
+      ]);
+      if (!isMounted) return;
+      if (queryCount !== null) setQueryListCount(queryCount);
+      if (messageCount !== null) setMessagesCount(messageCount);
+    };
+
+    loadCounts();
+
+    // Query List / Messages pages dispatch this after a reply is sent
+    const handleRefresh = () => loadCounts();
+    window.addEventListener('admin-query-counts-refresh', handleRefresh);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('admin-query-counts-refresh', handleRefresh);
+    };
+  }, []);
+
   const ROUTE_TO_CODE = {
     'all-registered': 'all',
     'registered-users': 'RGO',
@@ -295,18 +349,18 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
       return apiCounts[code];
     }
     switch (filterKey) {
-      case 'all-registered': return INITIAL_MEMBERS.filter(m => m.status === 'all-registered').length;
-      case 'registered-users': return INITIAL_MEMBERS.filter(m => m.status === 'registered-users').length;
-      case 'info-pending': return INITIAL_MEMBERS.filter(m => m.status === 'info-pending').length;
-      case 'scheduling-pending': return INITIAL_MEMBERS.filter(m => m.status === 'scheduling-pending').length;
-      case 'interview-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Interview Pending').length;
-      case 'docs-pending': return INITIAL_MEMBERS.filter(m => m.status === 'Documents Pending').length;
-      case 'preparation-1': return INITIAL_MEMBERS.filter(m => m.status === 'Preparation - 1').length;
-      case 'preparation-2': return INITIAL_MEMBERS.filter(m => m.status === 'Preparation - 2').length;
-      case 'review-summary-1': return INITIAL_MEMBERS.filter(m => m.status === 'Review & Summary 1').length;
-      case 'review-summary-2': return INITIAL_MEMBERS.filter(m => m.status === 'Review & Summary 2').length;
-      case 'itin-files': return INITIAL_MEMBERS.filter(m => m.status === 'ITIN Files').length;
-      case 'revised-estimate': return INITIAL_MEMBERS.filter(m => m.status === 'Revised Estimate').length;
+      case 'all-registered': return 0;
+      case 'registered-users': return 0;
+      case 'info-pending': return 0;
+      case 'scheduling-pending': return 0;
+      case 'interview-pending': return 0;
+      case 'docs-pending': return 0;
+      case 'preparation-1': return 0;
+      case 'preparation-2': return 0;
+      case 'review-summary-1': return 0;
+      case 'review-summary-2': return 0;
+      case 'itin-files': return 0;
+      case 'revised-estimate': return 0;
       case 'payment-pending-efiling': return 0;
       case 'payable-pending-paper-filing': return 0;
       case 'fee-payment-received-1': return 0;
@@ -832,6 +886,9 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
               <Search size={16} className="menu-icon" />
               <span className="uppercase-label">QUERY LIST</span>
             </div>
+            {queryListCount !== null && (
+              <span className="sidebar-badge">{queryListCount}</span>
+            )}
           </button>
         )}
 
@@ -845,6 +902,9 @@ export default function Sidebar({ selectedYear = '', currentFilter = 'all-regist
               <MessageCircle size={16} className="menu-icon" />
               <span className="uppercase-label">MESSAGES</span>
             </div>
+            {messagesCount !== null && (
+              <span className="sidebar-badge">{messagesCount}</span>
+            )}
           </button>
         )}
 
