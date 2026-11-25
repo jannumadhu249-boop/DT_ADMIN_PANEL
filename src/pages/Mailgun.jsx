@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import logoLogin from '../assets/logo-lg.png';
+import logoLogin from '../assets/logo.jpg';
 import { URLS } from '../url';
 import { Send, CheckCircle, XCircle, X, Loader } from 'lucide-react';
 

@@ -6,7 +6,7 @@ import {
   EyeOff, 
   ShieldCheck 
 } from 'lucide-react';
-import logoLg from '../assets/logo-lg.png';
+import logoLg from '../assets/logo.jpg';
 import ForgotPassword from './ForgotPassword';
 // import Register from './Register';
 import AuthAlert from '../pages/AuthAlert';
