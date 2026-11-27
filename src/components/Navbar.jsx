@@ -362,7 +362,7 @@ export default function Navbar({
           )}
 
           {/* M Note */}
-          {(canView('notes') || canView('m-note')) && (
+          {/* {(canView('notes') || canView('m-note')) && (
             <li>
               <button
                 className={`navbar-link ${activeTab === 'm-note' ? 'active' : ''}`}
@@ -374,10 +374,10 @@ export default function Navbar({
                 M Note
               </button>
             </li>
-          )}
+          )} */}
 
           {/* Payments */}
-          {canView('payments') && (
+          {/* {canView('payments') && (
             <li className="navbar-dropdown-container">
               <button
                 className={`navbar-link ${activeDropdown === 'payments' ? 'active' : ''
@@ -393,7 +393,7 @@ export default function Navbar({
                 </ul>
               )}
             </li>
-          )}
+          )} */}
         </ul>
       </nav>
 

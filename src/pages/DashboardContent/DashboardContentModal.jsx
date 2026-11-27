@@ -37,33 +37,33 @@ const getToken = () => {
 };
 
 export const FILE_STATUS_LIST = [
-  { code: 'RGO', label: 'Registered Users (RGO)' },
-  { code: 'SP', label: 'Scheduling Pending (SP)' },
-  { code: 'BIP', label: 'Information Pending (BIP)' },
-  { code: 'IP', label: 'Interview Pending (IP)' },
-  { code: 'DP', label: 'Documents Pending (DP)' },
-  { code: 'PP_I', label: 'Preparation Pending - I (PP_I)' },
-  { code: 'PP_II', label: 'Preparation Pending - II (PP_II)' },
-  { code: 'TR_S_I', label: 'Review & Summary I (TR_S_I)' },
-  { code: 'TR_S_II', label: 'Review & Summary II (TR_S_II)' },
-  { code: 'ITIN', label: 'ITIN Files (ITIN)' },
-  { code: 'RE_ES', label: 'Revised Estimate (RE_ES)' },
-  { code: 'PP_EF', label: 'Payment Pending - Efiling (PP_EF)' },
-  { code: 'PP_PF', label: 'Payment Pending - Paper filing (PP_PF)' },
-  { code: 'FPR', label: 'Fee Payment Received - I (FPR)' },
-  { code: 'FPR_II', label: 'Fee Payment Received - II (FPR_II)' },
-  { code: 'CR_EF', label: 'Client Review - Efiling (CR_EF)' },
-  { code: 'CR_PF', label: 'Client Review - Paper Filing (CR_PF)' },
-  { code: 'EFP_I', label: 'Efiling Pending - I (EFP_I)' },
-  { code: 'EFP_II', label: 'Efiling Pending - II (EFP_II)' },
-  { code: 'EF_AA_I', label: 'E - Filed & Awaiting Acceptance - I (EF_AA_I)' },
-  { code: 'EF_AA_II', label: 'E - Filed & Awaiting Acceptance - II (EF_AA_II)' },
-  { code: 'EF_REJ', label: 'E - Filed & Rejected (EF_REJ)' },
-  { code: 'C_R', label: 'City Return (C_R)' },
-  { code: 'EFA_FC', label: 'E-Filing Accepted & Filing Complete (EFA_FC)' },
-  { code: 'PF_P', label: 'Paper Filing Pending (PF_P)' },
-  { code: 'PF_D', label: 'Paper Filing Done (PF_D)' },
-  { code: 'CANC', label: 'Cancelled (CANC)' },
+  { code: 'RGO', label: 'Registered Users' },
+  { code: 'SP', label: 'Scheduling Pending' },
+  { code: 'BIP', label: 'Information Pending' },
+  { code: 'IP', label: 'Interview Pending' },
+  { code: 'DP', label: 'Documents Pending' },
+  { code: 'PP_I', label: 'Preparation Pending - I' },
+  { code: 'PP_II', label: 'Preparation Pending - II' },
+  { code: 'TR_S_I', label: 'Review & Summary I' },
+  { code: 'TR_S_II', label: 'Review & Summary II' },
+  { code: 'ITIN', label: 'ITIN Files' },
+  { code: 'RE_ES', label: 'Revised Estimate' },
+  { code: 'PP_EF', label: 'Payment Pending - Efiling' },
+  { code: 'PP_PF', label: 'Payment Pending - Paper filing' },
+  { code: 'FPR', label: 'Fee Payment Received - I' },
+  { code: 'FPR_II', label: 'Fee Payment Received - II' },
+  { code: 'CR_EF', label: 'Client Review - Efiling' },
+  { code: 'CR_PF', label: 'Client Review - Paper Filing' },
+  { code: 'EFP_I', label: 'Efiling Pending - I' },
+  { code: 'EFP_II', label: 'Efiling Pending - II' },
+  { code: 'EF_AA_I', label: 'E-Filed & Awaiting Acceptance - I' },
+  { code: 'EF_AA_II', label: 'E-Filed & Awaiting Acceptance - II' },
+  { code: 'EF_REJ', label: 'E-Filed & Rejected' },
+  { code: 'C_R', label: 'City Return' },
+  { code: 'EFA_FC', label: 'E-Filing Accepted & Filing Complete' },
+  { code: 'PF_P', label: 'Paper Filing Pending' },
+  { code: 'PF_D', label: 'Paper Filing Done' },
+  { code: 'CANC', label: 'Cancelled' },
 ];
 
 /* CKEditor 4 Fallback Component (uses window.CKEDITOR from index.html CDN) */
@@ -124,6 +124,8 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
   const [pageTitle, setPageTitle] = useState('');
   const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [existingImageName, setExistingImageName] = useState('');
+  const [imageRemoved, setImageRemoved] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const buildImageUrl = (imageName) => {
@@ -147,10 +149,18 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
   useEffect(() => {
     if (isOpen) {
       if (editData) {
-        setFileStatus(editData.file_status || editData.status || editData.statusCode || 'SP');
+        const rawStatus = editData.file_status || editData.status || editData.statusCode || '';
+        const matchedStatus = FILE_STATUS_LIST.find(
+          (opt) =>
+            opt.code.toLowerCase() === String(rawStatus).trim().toLowerCase() ||
+            opt.label.toLowerCase() === String(rawStatus).trim().toLowerCase()
+        );
+        setFileStatus(matchedStatus ? matchedStatus.code : (rawStatus || 'RGO'));
         setPageTitle(editData.page_title || editData.desc || editData.content || editData.description || '');
         setImage(null);
+        setImageRemoved(false);
         const imgName = editData.banner_image || editData.image || editData.imageUrl || editData.image_url || editData.bannerImage || editData.file_path || editData.filePath || '';
+        setExistingImageName(typeof imgName === 'string' ? imgName : '');
         const preview = buildImageUrl(imgName);
         setImagePreview(preview);
       } else {
@@ -158,6 +168,8 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
         setPageTitle('');
         setImage(null);
         setImagePreview(null);
+        setExistingImageName('');
+        setImageRemoved(false);
       }
     }
   }, [isOpen, editData]);
@@ -174,6 +186,8 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
   const removeImage = () => {
     setImage(null);
     setImagePreview(null);
+    setExistingImageName('');
+    setImageRemoved(true);
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -189,7 +203,14 @@ export default function DashboardContentModal({ isOpen, onClose, onSave, editDat
       formData.append('file_status', fileStatus);
       formData.append('page_title', pageTitle.trim());
       if (image) {
+        // New image selected — send as file
         formData.append('image', image);
+      } else if (isEdit && imageRemoved) {
+        // User explicitly removed the image — send image as null
+        formData.append('image', null);
+      } else if (isEdit && existingImageName) {
+        // No change — preserve existing image by passing its filename
+        formData.append('banner_image', existingImageName);
       }
 
       const baseUrl = isEdit ? URLS.UpdateDashboardContent.replace(/\/+$/, '') : URLS.CreateDashboardContent;

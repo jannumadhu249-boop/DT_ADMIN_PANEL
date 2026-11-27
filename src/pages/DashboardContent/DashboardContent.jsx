@@ -95,12 +95,12 @@ function DeleteModal({ isOpen, onClose, onConfirm, description }) {
 
 /* ─── Main Dashboard Content Component ─────────────────── */
 export default function DashboardContent() {
-  const [items, setItems]             = useState([]);
-  const [loading, setLoading]         = useState(true);
-  const [showForm, setShowForm]       = useState(false);
-  const [editItem, setEditItem]       = useState(null);
-  const [deleteItem, setDeleteItem]   = useState(null);
-  const [toast, setToast]             = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [deleteItem, setDeleteItem] = useState(null);
+  const [toast, setToast] = useState(null);
   const [expandedRows, setExpandedRows] = useState({});
 
   // ── API pagination state ──
@@ -154,11 +154,6 @@ export default function DashboardContent() {
     }
   };
 
-  // ── Initial load ──
-  useEffect(() => {
-    fetchList(1, pagination.limit, searchTerm, fileStatusFilter, statusFilter);
-  }, []); // run only once
-
   // ── When filters change, reset to page 1 ──
   useEffect(() => {
     fetchList(1, pagination.limit, searchTerm, fileStatusFilter, statusFilter);
@@ -173,6 +168,11 @@ export default function DashboardContent() {
 
   const handleLimitChange = (e) => {
     const newLimit = parseInt(e.target.value);
+    setPagination(prev => ({
+      ...prev,
+      currentPage: 1,
+      limit: newLimit
+    }));
     fetchList(1, newLimit, searchTerm, fileStatusFilter, statusFilter);
   };
 
@@ -231,33 +231,33 @@ export default function DashboardContent() {
     return found ? found.label : code || '—';
   };
 
-/* ─── Image Thumbnail with Fallback ─────────────────── */
-function ImageThumb({ src, alt }) {
-  const [hasError, setHasError] = useState(false);
+  /* ─── Image Thumbnail with Fallback ─────────────────── */
+  function ImageThumb({ src, alt }) {
+    const [hasError, setHasError] = useState(false);
 
-  useEffect(() => {
-    setHasError(false);
-  }, [src]);
+    useEffect(() => {
+      setHasError(false);
+    }, [src]);
 
-  if (!src || hasError) {
+    if (!src || hasError) {
+      return (
+        <div className="dc-thumb-placeholder" title="No banner image">
+          <ImageOff size={15} />
+        </div>
+      );
+    }
+
     return (
-      <div className="dc-thumb-placeholder" title="No banner image">
-        <ImageOff size={15} />
-      </div>
+      <img
+        src={src}
+        alt={alt || 'Dashboard Banner'}
+        className="dc-thumb"
+        onError={() => {
+          setHasError(true);
+        }}
+      />
     );
   }
-
-  return (
-    <img
-      src={src}
-      alt={alt || 'Dashboard Banner'}
-      className="dc-thumb"
-      onError={() => {
-        setHasError(true);
-      }}
-    />
-  );
-}
 
   const getImageSrc = (item) => {
     if (!item) return '';
@@ -431,11 +431,11 @@ function ImageThumb({ src, alt }) {
     );
   };
 
-  return ( 
+  return (
     <>
       {showForm ? (
-        <DashboardContentForm 
-          editData={editItem} 
+        <DashboardContentForm
+          editData={editItem}
           onBack={handleBackToList}
           onSave={handleSave}
         />
@@ -454,72 +454,72 @@ function ImageThumb({ src, alt }) {
 
             {/* ── Filters ── */}
             <div style={{
-          padding: '10px 20px 16px 20px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          flexWrap: 'wrap',
-        }}>
-          <div style={{
-            position: 'relative',
-            flexShrink: 0,
-            width: '350px',
-          }}>
-            <Search size={18} style={{
-              position: 'absolute',
-              left: '12px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#94a3b8',
-            }} />
-            <input
-              type="text"
-              placeholder="Search by description..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px 8px 38px',
-                border: '1.5px solid #e2e8f0',
-                borderRadius: '10px',
-                fontSize: '14px',
-                outline: 'none',
-                transition: 'all 0.15s',
-                background: '#f8fafc',
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#0076a3';
-                e.target.style.background = '#fff';
-                e.target.style.boxShadow = '0 0 0 3px #0076a325';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e2e8f0';
-                e.target.style.background = '#f8fafc';
-                e.target.style.boxShadow = 'none';
-              }}
-            />
-          </div>
+              padding: '10px 20px 16px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}>
+              <div style={{
+                position: 'relative',
+                flexShrink: 0,
+                width: '350px',
+              }}>
+                <Search size={18} style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#94a3b8',
+                }} />
+                <input
+                  type="text"
+                  placeholder="Search by description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 38px',
+                    border: '1.5px solid #e2e8f0',
+                    borderRadius: '10px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'all 0.15s',
+                    background: '#f8fafc',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#0076a3';
+                    e.target.style.background = '#fff';
+                    e.target.style.boxShadow = '0 0 0 3px #0076a325';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e2e8f0';
+                    e.target.style.background = '#f8fafc';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                />
+              </div>
 
-          <select
-            value={fileStatusFilter}
-            onChange={(e) => setFileStatusFilter(e.target.value)}
-            style={{
-              padding: '8px 14px',
-              border: '1.5px solid #e2e8f0',
-              borderRadius: '10px',
-              fontSize: '14px',
-              background: '#f8fafc',
-              color: '#334155',
-              minWidth: '180px',
-            }}
-          >
-            <option value="">All File Status</option>
-            {FILE_STATUS_LIST.map(opt => (
-              <option key={opt.code} value={opt.code}>{opt.label}</option>
-            ))}
-          </select>
+              <select
+                value={fileStatusFilter}
+                onChange={(e) => setFileStatusFilter(e.target.value)}
+                style={{
+                  padding: '8px 14px',
+                  border: '1.5px solid #e2e8f0',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  minWidth: '180px',
+                }}
+              >
+                <option value="">All File Status</option>
+                {FILE_STATUS_LIST.map(opt => (
+                  <option key={opt.code} value={opt.code}>{opt.label}</option>
+                ))}
+              </select>
 
-          {/* <select
+              {/* <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             style={{
@@ -536,115 +536,115 @@ function ImageThumb({ src, alt }) {
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
           </select> */}
-        </div>
-
-        <div className="dc-table-wrap">
-          {loading ? (
-            <div className="dc-empty"><p>Loading dashboard contents...</p></div>
-          ) : items.length === 0 ? (
-            <div className="dc-empty">
-              <FileText size={40} />
-              <p>
-                {searchTerm || fileStatusFilter || statusFilter
-                  ? 'No results found for your filters.'
-                  : 'No dashboard content records found. Click <strong>+ Add Content</strong> to create one.'}
-              </p>
             </div>
-          ) : (
-            <>
-              <table className="dc-table">
-                <thead>
-                  <tr>
-                    <th>Sl.No</th>
-                    <th>Image</th>
-                    <th>Description</th>
-                    <th>File Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, idx) => {
-                    const description = item.page_title || item.desc || item.content || '';
-                    const fileStatus = item.file_status || item.status || item.statusCode || '';
-                    const imageSrc = getImageSrc(item);
-                    const isExpanded = expandedRows[item._id] || false;
-                    const displayText = isExpanded ? description : (description.length > 200 ? description.slice(0, 200) + '…' : description);
-                    const isTruncated = description.length > 200;
 
-                    return (
-                      <tr key={item._id || idx}>
-                        <td>{(pagination.currentPage - 1) * pagination.limit + idx + 1}</td>
-                        <td>
-                          <ImageThumb src={imageSrc} alt={description} />
-                        </td>
-                        <td>
-                          <div
-                            className="dc-desc-cell"
-                            onClick={() => isTruncated && toggleExpand(item._id)}
-                            style={{
-                              cursor: isTruncated ? 'pointer' : 'default',
-                              wordBreak: 'break-word',
-                              whiteSpace: isExpanded ? 'normal' : 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                            title={!isExpanded ? description : ''}
-                          >
-                            {displayText}
-                            {isTruncated && (
-                              <span style={{
-                                color: '#0076a3',
-                                fontWeight: '600',
-                                marginLeft: '4px',
-                                fontSize: '12px',
-                              }}>
-                                {isExpanded ? ' (less)' : ' (more)'}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <span className="dc-badge" style={{ background: '#e0f0f8', color: '#0076a3', fontWeight: 600 }}>
-                            {getStatusLabel(fileStatus)}
-                          </span>
-                        </td>
-                        <td>
-                          <div className="dc-actions">
-                            <button
-                              className="dc-btn-icon dc-btn-edit"
-                              title="Edit"
-                              onClick={() => handleEdit(item)}
-                            >
-                              <Pencil size={13} />
-                            </button>
-                            <button
-                              className="dc-btn-icon dc-btn-delete"
-                              title="Delete"
-                              onClick={() => setDeleteItem(item)}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </td>
+            <div className="dc-table-wrap">
+              {loading ? (
+                <div className="dc-empty"><p>Loading dashboard contents...</p></div>
+              ) : items.length === 0 ? (
+                <div className="dc-empty">
+                  <FileText size={40} />
+                  <p>
+                    {searchTerm || fileStatusFilter || statusFilter
+                      ? 'No results found for your filters.'
+                      : 'No dashboard content records found. Click <strong>+ Add Content</strong> to create one.'}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <table className="dc-table">
+                    <thead>
+                      <tr>
+                        <th>Sl.No</th>
+                        <th>Image</th>
+                        <th>Description</th>
+                        <th>File Status</th>
+                        <th>Actions</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {renderPagination()}
-            </>
-          )}
-        </div>
+                    </thead>
+                    <tbody>
+                      {items.map((item, idx) => {
+                        const description = item.page_title || item.desc || item.content || '';
+                        const fileStatus = item.file_status || item.status || item.statusCode || '';
+                        const imageSrc = getImageSrc(item);
+                        const isExpanded = expandedRows[item._id] || false;
+                        const displayText = isExpanded ? description : (description.length > 200 ? description.slice(0, 200) + '…' : description);
+                        const isTruncated = description.length > 200;
 
-        <DeleteModal
-          isOpen={!!deleteItem}
-          onClose={() => setDeleteItem(null)}
-          onConfirm={handleDelete}
-          description={deleteItem?.page_title || deleteItem?.description || deleteItem?.desc || ''}
-        />
-      </div>
-    </div>
-    )}
+                        return (
+                          <tr key={item._id || idx}>
+                            <td>{(pagination.currentPage - 1) * pagination.limit + idx + 1}</td>
+                            <td>
+                              <ImageThumb src={imageSrc} alt={description} />
+                            </td>
+                            <td>
+                              <div
+                                className="dc-desc-cell"
+                                onClick={() => isTruncated && toggleExpand(item._id)}
+                                style={{
+                                  cursor: isTruncated ? 'pointer' : 'default',
+                                  wordBreak: 'break-word',
+                                  whiteSpace: isExpanded ? 'normal' : 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                }}
+                                title={!isExpanded ? description : ''}
+                              >
+                                {displayText}
+                                {isTruncated && (
+                                  <span style={{
+                                    color: '#0076a3',
+                                    fontWeight: '600',
+                                    marginLeft: '4px',
+                                    fontSize: '12px',
+                                  }}>
+                                    {isExpanded ? ' (less)' : ' (more)'}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <span className="dc-badge" style={{ background: '#e0f0f8', color: '#0076a3', fontWeight: 600 }}>
+                                {getStatusLabel(fileStatus)}
+                              </span>
+                            </td>
+                            <td>
+                              <div className="dc-actions">
+                                <button
+                                  className="dc-btn-icon dc-btn-edit"
+                                  title="Edit"
+                                  onClick={() => handleEdit(item)}
+                                >
+                                  <Pencil size={13} />
+                                </button>
+                                <button
+                                  className="dc-btn-icon dc-btn-delete"
+                                  title="Delete"
+                                  onClick={() => setDeleteItem(item)}
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {renderPagination()}
+                </>
+              )}
+            </div>
+
+            <DeleteModal
+              isOpen={!!deleteItem}
+              onClose={() => setDeleteItem(null)}
+              onConfirm={handleDelete}
+              description={deleteItem?.page_title || deleteItem?.description || deleteItem?.desc || ''}
+            />
+          </div>
+        </div>
+      )}
 
       {toast && (
         <Toast
